@@ -15,5 +15,7 @@ namespace Assets.MonoBehaviours
         public static string SaveFileName = "";
 
         public static FileData FileData = null;
+
+        internal static Story Story = null;
     }
 }

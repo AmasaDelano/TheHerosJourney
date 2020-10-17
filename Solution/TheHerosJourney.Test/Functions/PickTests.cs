@@ -22,7 +22,7 @@ namespace TheHerosJourney.Test
             fileData.CharacterData = new Dictionary<Sex, string[]>();
             fileData.LocationData = new LocationData
             {
-                Industries = new Dictionary<Industry, IndustryData>(),
+                Industries = new Dictionary<string, IndustryData>(),
                 MainFeatures = new Dictionary<string, MainFeature>(),
                 Names = new LocationNames
                 {
@@ -33,6 +33,7 @@ namespace TheHerosJourney.Test
                 },
                 Towns = new TownTemplate[0]
             };
+            fileData.Adventures = new Adventure[0];
         }
 
         private void SetUpForPickCharacter()
@@ -56,7 +57,7 @@ namespace TheHerosJourney.Test
             };
 
             const string dummyMainFeature = "Lake";
-            const Industry dummyTownIndustry = Industry.Fishing;
+            const string dummyTownIndustry = "Fishing";
             fileData.LocationData.Towns = new TownTemplate[]
             {
                 new TownTemplate
@@ -154,7 +155,7 @@ namespace TheHerosJourney.Test
             // THIS TEST IS TO MAKE SURE THIS REUSABLE FUNCTION WORKS.
             SetUpForPickLocation();
 
-            Action pickLocation = () => Pick.Location(new List<Location>(), fileData, givenType, PickMethod.Pick);
+            Action pickLocation = () => Pick.Location(new List<Location>(), fileData, PickMethod.Pick, givenType);
 
             Assert.DoesNotThrow(() => pickLocation());
         }
@@ -177,7 +178,7 @@ namespace TheHerosJourney.Test
             // THIS TEST IS TO MAKE SURE THIS REUSABLE FUNCTION WORKS.
             SetUpForPickLocation();
 
-            var location = Pick.Location(new List<Location>(), fileData, givenType, PickMethod.Pick);
+            var location = Pick.Location(new List<Location>(), fileData, PickMethod.Pick, givenType);
 
             Assert.IsNotNull(location);
         }
@@ -187,8 +188,9 @@ namespace TheHerosJourney.Test
         {
             SetUpForPickCharacter();
             SetUpForPickLocation();
+            var you = new Character();
 
-            Action pickStory = () => Pick.Story(fileData);
+            Action pickStory = () => Pick.Story(fileData, you);
 
             Assert.DoesNotThrow(() => pickStory());
         }
@@ -198,8 +200,9 @@ namespace TheHerosJourney.Test
         {
             SetUpForPickCharacter();
             SetUpForPickLocation();
+            var you = new Character();
 
-            var story = Pick.Story(fileData);
+            var story = Pick.Story(fileData, you);
 
             Assert.IsNotNull(story.You);
         }

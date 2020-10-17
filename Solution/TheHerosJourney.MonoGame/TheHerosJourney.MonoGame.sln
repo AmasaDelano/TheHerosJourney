@@ -1,0 +1,52 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29709.97
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TheHerosJourney.MonoGame", "TheHerosJourney.MonoGame.csproj", "{8D82D1FC-C5A4-426C-BE57-9A5E2E244CF0}"
+	ProjectSection(ProjectDependencies) = postProject
+		{ADA47733-8A14-4D3F-BDB4-A0F211FAE533} = {ADA47733-8A14-4D3F-BDB4-A0F211FAE533}
+	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TheHerosJourney", "..\TheHerosJourney\TheHerosJourney.csproj", "{ADA47733-8A14-4D3F-BDB4-A0F211FAE533}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TheHerosJourney.Test", "..\TheHerosJourney.Test\TheHerosJourney.Test.csproj", "{44AC327B-A718-40DE-884E-5B7C153FE0CA}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GeonBit.UI", "..\..\GeonBit.UI\GeonBit.UI\GeonBit.UI.csproj", "{6F1CDF01-A3DB-4708-BDFF-6D3E41680A41}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataTypes", "..\..\GeonBit.UI\GeonBit.UI\Libs\DataTypes\DataTypes.csproj", "{EEED419D-CAA6-4D5A-9B74-DC98CBAF3E7E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8D82D1FC-C5A4-426C-BE57-9A5E2E244CF0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8D82D1FC-C5A4-426C-BE57-9A5E2E244CF0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8D82D1FC-C5A4-426C-BE57-9A5E2E244CF0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8D82D1FC-C5A4-426C-BE57-9A5E2E244CF0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ADA47733-8A14-4D3F-BDB4-A0F211FAE533}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ADA47733-8A14-4D3F-BDB4-A0F211FAE533}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ADA47733-8A14-4D3F-BDB4-A0F211FAE533}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ADA47733-8A14-4D3F-BDB4-A0F211FAE533}.Release|Any CPU.Build.0 = Release|Any CPU
+		{44AC327B-A718-40DE-884E-5B7C153FE0CA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44AC327B-A718-40DE-884E-5B7C153FE0CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44AC327B-A718-40DE-884E-5B7C153FE0CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44AC327B-A718-40DE-884E-5B7C153FE0CA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F1CDF01-A3DB-4708-BDFF-6D3E41680A41}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F1CDF01-A3DB-4708-BDFF-6D3E41680A41}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F1CDF01-A3DB-4708-BDFF-6D3E41680A41}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F1CDF01-A3DB-4708-BDFF-6D3E41680A41}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EEED419D-CAA6-4D5A-9B74-DC98CBAF3E7E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EEED419D-CAA6-4D5A-9B74-DC98CBAF3E7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EEED419D-CAA6-4D5A-9B74-DC98CBAF3E7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EEED419D-CAA6-4D5A-9B74-DC98CBAF3E7E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3D374EF3-917D-471A-8CDE-0C7EB364C87B}
+	EndGlobalSection
+EndGlobal

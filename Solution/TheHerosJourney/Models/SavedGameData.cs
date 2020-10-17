@@ -33,6 +33,8 @@ namespace TheHerosJourney.Models
 
         public SavedCharacter You = null;
 
+        public int Morale = 0;
+
         public SavedCharacter[] Characters = new SavedCharacter[0];
 
         public Dictionary<string, string> NamedCharacters = new Dictionary<string, string>();

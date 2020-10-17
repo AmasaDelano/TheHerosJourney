@@ -1,5 +1,6 @@
 ﻿using TheHerosJourney.Functions;
 using NUnit.Framework;
+using TheHerosJourney.Models;
 
 namespace TheHerosJourney.Test.Functions
 {
@@ -16,6 +17,21 @@ namespace TheHerosJourney.Test.Functions
             string output = Process.CapitalizeFirstLetter(input);
 
             Assert.AreEqual(expectedOutput, output);
+        }
+
+        [TestCase("{|MORALE:+1|}", 1)]
+        [TestCase("{|MORALE:-1|}", -1)]
+        public void Process_Message_AddsMoraleCorrectly(string message, int expectedMorale)
+        {
+            var fileData = new FileData();
+            var story = new Story();
+            story.Morale = 0;
+            var commands = new System.Collections.Generic.List<System.Action<FileData, Story>>();
+
+            Process.Message(fileData, story, message, commands);
+            commands.ForEach(command => command.Invoke(fileData, story));
+
+            Assert.AreEqual(expectedMorale, story.Morale);
         }
     }
 }

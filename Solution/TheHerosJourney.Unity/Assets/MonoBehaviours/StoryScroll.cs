@@ -1,19 +1,27 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
+using TheHerosJourney.Models;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace Assets.MonoBehaviours
 {
-    public class StoryScroll : MonoBehaviour
+    public class StoryScroll : MonoBehaviour, IPointerClickHandler
     {
         public float scrollSpeed = 5F;
+
+        private float dragDistance = 0F;
 
         [SerializeField]
 #pragma warning disable 0649
         private GameUi instanceGameUi;
 #pragma warning restore 0649
+
+        private static Dictionary<int, Action<FileData, Story>> commandLookup;
 
         private void Start()
         {
@@ -31,7 +39,7 @@ namespace Assets.MonoBehaviours
                 {
                     SkipToChoice();
                 }
-                
+
                 // SCROLL IF THEY USE THE SCROLL WHEEL.
                 float scrollAmount = Input.GetAxis("Mouse ScrollWheel");
                 if (!Mathf.Approximately(scrollAmount, 0))
@@ -40,6 +48,12 @@ namespace Assets.MonoBehaviours
 
                     var currentY = instanceGameUi.scrollContainer.anchoredPosition.y;
                     ScrollToNow(instanceGameUi, currentY - scrollAmount * scrollSpeed * 10 * (instanceGameUi.storyText.fontSize + 4));
+                }
+
+                // IF THEY'RE DRAGGING THE SCROLL, MOVE IT.
+                {
+                    var currentY = instanceGameUi.scrollContainer.anchoredPosition.y;
+                    ScrollToNow(instanceGameUi, currentY - dragDistance * 10 * (instanceGameUi.storyText.fontSize + 4));
                 }
             }
 
@@ -58,6 +72,33 @@ namespace Assets.MonoBehaviours
             instanceGameUi.stillRevealingText = intCurrentCharacterIndex < instanceGameUi.storyText.textInfo.characterCount;
 
             instanceGameUi.storyText.UpdateVertexData(TMP_VertexDataUpdateFlags.Colors32);
+
+            // RUN COMMANDS
+            int[] commandsToRun = commandLookup.Keys.Where(key => key <= instanceGameUi.currentCharacterIndex).ToArray();
+            foreach (int commandIndex in commandsToRun)
+            {
+                commandLookup[commandIndex].Invoke(Data.FileData, Data.Story);
+                commandLookup.Remove(commandIndex);
+            }
+        }
+
+        public static void FlushRemainingCommands(FileData fileData, Story story)
+        {
+            // RUN ALL COMMANDS NOW
+            if (commandLookup != null)
+            {
+                commandLookup.Values.ToList().ForEach(cl => cl.Invoke(fileData, story));
+                commandLookup.Clear();
+            }
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            // START SCROLLING IF THEY USE THE MOUSE.
+            if (eventData.dragging)
+            {
+                dragDistance = eventData.delta.y;
+            }
         }
 
         private void LateUpdate()
@@ -148,7 +189,7 @@ namespace Assets.MonoBehaviours
             // FADE IN AND MOVE DOWN.
             
             var alphaPerSecond = 255F / (30F / gameUi.lettersPerSecond);
-            // TODO: REPLACE THE "3" ABOVE WITH AN ACTUAL CALCULATED letterFadeInDuration VARIABLE
+            // TODO: REPLACE THE "30" ABOVE WITH AN ACTUAL CALCULATED letterFadeInDuration VARIABLE (MAYBE??)
 
             while (color.a < 255)
             {
@@ -174,12 +215,12 @@ namespace Assets.MonoBehaviours
             yield return null;
         }
 
-        internal static void AddText(GameUi gameUi, params string[] newParagraphs)
+        internal static void AddText(GameUi gameUi, List<Action<FileData, Story>> newCommands, params string[] newParagraphs)
         {
-            AddText(gameUi, newParagraphs, isLoading: false);
+            AddText(gameUi, newCommands, newParagraphs, isLoading: false);
         }
 
-        internal static void AddText(GameUi gameUi, string[] newParagraphs, bool isLoading)
+        internal static void AddText(GameUi gameUi, List<Action<FileData, Story>> newCommands, string[] newParagraphs, bool isLoading)
         {
             int oldCharacterCount = gameUi.storyText.textInfo.characterCount;
 
@@ -210,6 +251,32 @@ namespace Assets.MonoBehaviours
             gameUi.currentCharacterIndex += gameUi.storyText.textInfo.characterInfo
                 .Skip(RoundCurrentCharacterIndex(gameUi))
                 .Count(c => c.style == FontStyles.Italic);
+
+            // QUICK RUN ANY COMMANDS THAT WERE SKIPPED
+            // THERE SHOULD NEVER BE ANY HERE, BUT THIS IS JUST IN CASE.
+            // MAYBE I SHOULD THROW OR LOG AN ERROR INSTEAD?
+            if (commandLookup != null)
+            {
+                commandLookup.Values.ToList().ForEach(cl => cl.Invoke(Data.FileData, Data.Story));
+                commandLookup.Clear();
+            }
+            // KEY UP THE COMMANDS TO BE RUN WHEN THOSE CHARACTERS ARE SHOWN
+            if (newCommands != null)
+            {
+                commandLookup = new Dictionary<int, Action<FileData, Story>>();
+                var replacements = Regex.Matches(newText, "\\{(\\d+?)\\}");
+                foreach (Match replacement in replacements)
+                {
+                    if (int.TryParse(replacement.Groups[1].Value, out int commandNumber))
+                    {
+                        int charNumber = gameUi.storyText.text.IndexOf(replacement.Value);
+                        commandLookup[charNumber] = newCommands[commandNumber - 1];
+                    }
+
+                    gameUi.storyText.text = gameUi.storyText.text.Replace(replacement.Value, "");
+                    gameUi.storyText.ForceMeshUpdate();
+                }
+            }
 
             // START FADING IN **ALL** THE NEW LETTERS.
             // TO START, THIS HIDES THEM, HOPEFULLY BEFORE THE NEXT UPDATE.

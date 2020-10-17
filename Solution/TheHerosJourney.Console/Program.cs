@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace TheHerosJourney.Console
 {
@@ -34,7 +35,20 @@ namespace TheHerosJourney.Console
             /// <param name="tabSize">The value that indicates the column width of tab characters.</param>
             static void WriteMessage(string paragraph)
             {
-                paragraph = Process.Message(fileData, story, paragraph);
+                var commands = new List<Action<FileData, Story>>();
+                paragraph = Process.Message(fileData, story, paragraph, commands);
+
+                // INVOKE ALL COMMANDS IMMEDIATELY
+                var replacements = Regex.Matches(paragraph, "\\{(\\d+?)\\}");
+                foreach (Match replacement in replacements)
+                {
+                    if (int.TryParse(replacement.Groups[1].Value, out int commandNumber))
+                    {
+                        commands[commandNumber - 1].Invoke(fileData, story);
+                    }
+
+                    paragraph = paragraph.Replace(replacement.Value, "");
+                }
 
                 MessageLog.Add(paragraph);
 
@@ -157,7 +171,7 @@ namespace TheHerosJourney.Console
             // LET THE PLAYER PICK THEIR NAME AND SEX
 
             WriteDashes();
-            WriteMessage("Welcome to the Neverending Story!");
+            WriteMessage("Welcome to One Thousand Faces!");
             WriteDashes();
 #if DEBUG
             story.You.Name = "Marielle";
@@ -230,6 +244,11 @@ namespace TheHerosJourney.Console
                 // DON'T PICK A NEW SCENE.
                 if (getNewScene)
                 {
+                    WriteDashes();
+                    WriteMessage($"*** Morale:   {(Math.Sign(story.Morale) == 1 ? "+" : (Math.Sign(story.Morale) == 0 ? " " : "-"))}{Math.Abs(story.Morale)} ***");
+                    WriteMessage($"*** Inventory: {story.You.Inventory.Count} ***");
+                    WriteMessage($"*** Journal:   {story.Almanac.Count} ***");
+                    WriteDashes();
                     // OTHERWISE, PICK A NEW SCENE.
                     currentScene = Run.NewScene(fileData, story, WriteMessage);
 

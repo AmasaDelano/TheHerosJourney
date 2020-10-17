@@ -46,15 +46,21 @@ namespace TheHerosJourney.Functions
             return null;
         }
 
-        public static string Message(FileData fileData, Story story, string message, bool skipCommands = false)
+        public static string Message(FileData fileData, Story story, string message, List<Action<FileData, Story>> commands)
         {
-            /*static */string subMessage(string subMessageText, Story pStory, FileData pFileData)
+            /*static */string subMessage(string subMessageText, Story pStory, FileData pFileData, List<Action<FileData, Story>> pCommands)
             {
                 var replacedSubMessage = subMessageText.Replace("[", "{").Replace("]", "}").Replace("-", ":");
 
-                string processedSubMessage = Process.Message(pFileData, pStory, replacedSubMessage);
+                string processedSubMessage = Process.Message(pFileData, pStory, replacedSubMessage, pCommands);
 
                 return processedSubMessage;
+            }
+
+            /*static */string addCommand(Action<FileData, Story> command, List<Action<FileData, Story>> pCommands)
+            {
+                pCommands.Add(command);
+                return $"{{{pCommands.Count}}}";
             }
 
             var replacements = Regex.Matches(message, "\\{.+?\\}");
@@ -72,70 +78,84 @@ namespace TheHerosJourney.Functions
 
                 if (key.StartsWith("|") && key.EndsWith("|"))
                 {
-                    if (skipCommands)
-                    {
-                        continue;
-                    }
-
                     var command = key.Substring(1, key.Length - 2);
 
                     var commandOptions = command.Split(':');
 
                     if (commandOptions.Length == 1)
                     {
-                        story.NextSceneIdentifier = commandOptions[0];
+                        replacementValue = addCommand((fd, s) =>
+                        {
+                            s.NextSceneIdentifier = commandOptions[0];
+                        }, commands);
                     }
                     else
                     {
                         if (commandOptions[0] == "GIVE" && commandOptions.Length == 4)
                         {
-                            var item = new Item
+                            replacementValue = addCommand((fd, s) =>
                             {
-                                Identifier = subMessage(commandOptions[1], story, fileData),
-                                Name = subMessage(commandOptions[2], story, fileData),
-                                Description = subMessage(commandOptions[3], story, fileData)
-                            };
+                                var subCommands = new List<Action<FileData, Story>>();
+                                
+                                var item = new Item
+                                {
+                                    Identifier = subMessage(commandOptions[1], s, fd, subCommands),
+                                    Name = subMessage(commandOptions[2], s, fd, subCommands),
+                                    Description = subMessage(commandOptions[3], s, fd, subCommands)
+                                };
 
-                            item.Description = subMessage(item.Description, story, fileData);
+                                item.Description = subMessage(item.Description, s, fd, subCommands);
 
-                            story.You.Inventory.Add(item);
+                                subCommands.ForEach(sc => sc.Invoke(fd, s));
+
+                                s.You.Inventory.Add(item);
+                            }, commands);
                         }
                         else if (commandOptions[0] == "REMOVE" && commandOptions.Length == 2)
                         {
-                            var item = story.You.Inventory.FirstOrDefault(i => i.Identifier == commandOptions[1]);
-
-                            if (item != null)
+                            replacementValue = addCommand((fd, s) =>
                             {
-                                story.You.Inventory.Remove(item);
-                            }
+                                var item = s.You.Inventory.FirstOrDefault(i => i.Identifier == commandOptions[1]);
+
+                                if (item != null)
+                                {
+                                    s.You.Inventory.Remove(item);
+                                }
+                            }, commands);
                         }
                         else if (commandOptions[0] == "RENAME" && commandOptions.Length == 4)
                         {
-                            var item = story.You.Inventory.FirstOrDefault(i => i.Identifier == commandOptions[1]);
-
-                            if (item != null)
+                            replacementValue = addCommand((fd, s) =>
                             {
-                                item.Name = commandOptions[2];
-                                item.Description = commandOptions[3];
-                            }
+                                var item = s.You.Inventory.FirstOrDefault(i => i.Identifier == commandOptions[1]);
+
+                                if (item != null)
+                                {
+                                    item.Name = commandOptions[2];
+                                    item.Description = commandOptions[3];
+                                }
+                            }, commands);
                         }
                         else if (commandOptions[0] == "GOTO" && commandOptions.Length >= 2)
                         {
-                            Location newLocation;
-                            bool namedLocationExists = story.NamedLocations.TryGetValue(commandOptions[1], out newLocation);
+                            replacementValue = addCommand((fd, s) =>
+                            {
+                                Location newLocation;
+                                bool namedLocationExists = s.NamedLocations.TryGetValue(commandOptions[1], out newLocation);
 
-                            if (namedLocationExists)
-                            {
-                                story.You.CurrentLocation = newLocation;
-                            }
-                            else if (commandOptions[1] == "hometown")
-                            {
-                                story.You.CurrentLocation = story.You.Hometown;
-                            }
-                            else if (commandOptions[1] == "goal")
-                            {
-                                story.You.CurrentLocation = story.You.Goal;
-                            }
+                                if (namedLocationExists)
+                                {
+                                    s.You.CurrentLocation = newLocation;
+                                }
+                                else if (commandOptions[1] == "hometown")
+                                {
+                                    s.You.CurrentLocation = s.You.Hometown;
+                                }
+                                else if (commandOptions[1] == "goal")
+                                {
+                                    s.You.CurrentLocation = s.You.Goal;
+                                }
+                            }, commands);
                         }
                         else if (commandOptions[0] == "SET" && commandOptions.Length == 3)
                         {
@@ -146,18 +166,30 @@ namespace TheHerosJourney.Functions
                             {
                                 if (flagValue == "hometown")
                                 {
-                                    story.You.Goal = story.You.Hometown;
+                                    replacementValue = addCommand((fd, s) => s.You.Goal = s.You.Hometown, commands);
                                 }
                                 else
                                 {
-                                    story.NamedLocations.TryGetValue(flagValue, out Location goalLocation);
+                                    replacementValue = addCommand((fd, s) =>
+                                    {
+                                        s.NamedLocations.TryGetValue(flagValue, out Location goalLocation);
 
-                                    story.You.Goal = goalLocation;
+                                        s.You.Goal = goalLocation;
+                                    }, commands);
                                 }
                             }
                             else
                             {
-                                story.Flags[flagKey] = flagValue;
+                                replacementValue = addCommand((fd, s) => s.Flags[flagKey] = flagValue, commands);
+                            }
+                        }
+                        else if (commandOptions[0] == "MORALE" && commandOptions.Length == 2)
+                        {
+                            bool success = int.TryParse(commandOptions[1], out int moraleChange);
+
+                            if (success)
+                            {
+                                replacementValue = addCommand((fd, s) => s.Morale += moraleChange, commands);
                             }
                         }
                     }
@@ -190,19 +222,14 @@ namespace TheHerosJourney.Functions
 
                     if (conditionIsTrue)
                     {
-                        replacementValue = subMessage(keyPieces.Last(), story, fileData);
+                        replacementValue = subMessage(keyPieces.Last(), story, fileData, commands);
                     }
                 }
-                else if (!skipCommands && primaryKey == "almanac" && keyPieces.Length >= 3)
+                else if (primaryKey == "almanac" && keyPieces.Length >= 3)
                 {
-                    if (skipCommands)
-                    {
-                        continue;
-                    }
-
                     // STORE THE LOCATION IN THE ALMANAC.
-                    string almanacTitle = subMessage(keyPieces[1], story, fileData).CapitalizeFirstLetter();
-                    string almanacDescription = subMessage(keyPieces[2], story, fileData);
+                    string almanacTitle = subMessage(keyPieces[1], story, fileData, commands).CapitalizeFirstLetter();
+                    string almanacDescription = subMessage(keyPieces[2], story, fileData, commands);
 
                     if (story.Almanac.TryGetValue(almanacTitle, out string existingDescription)
                         && !(keyPieces.Length == 4 && keyPieces[3] == "reset"))
@@ -217,7 +244,7 @@ namespace TheHerosJourney.Functions
                         }
                     }
 
-                    story.Almanac[almanacTitle] = almanacDescription;
+                    replacementValue = addCommand((fd, s) => s.Almanac[almanacTitle] = almanacDescription, commands);
                 }
                 else if (primaryKey == "location")
                 {
@@ -617,6 +644,7 @@ namespace TheHerosJourney.Functions
                 NextSceneIdentifier = story.NextSceneIdentifier,
                 Almanac = new Dictionary<string, string>(story.Almanac),
                 Flags = new Dictionary<string, string>(story.Flags),
+                Morale = story.Morale,
                 You = MapCharacter(story.You),
                 Characters = story.Characters.Select(MapCharacter).ToArray(),
                 NamedCharacters = story.NamedCharacters.ToDictionary(nc => nc.Key, nc => nc.Value.Name),
@@ -741,6 +769,7 @@ namespace TheHerosJourney.Functions
                 return character;
             }
 
+            loadedStory.Morale = savedGameData.Morale;
             loadedStory.You = MapCharacter(savedGameData.You);
 
             foreach (var savedCharacter in savedGameData.Characters)

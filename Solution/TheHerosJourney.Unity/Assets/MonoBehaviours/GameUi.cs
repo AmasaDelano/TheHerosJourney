@@ -40,6 +40,11 @@ namespace Assets.MonoBehaviours
         [Header("Various Menus, etc.")]
         [SerializeField]
 #pragma warning disable 0649
+        internal TextMeshProUGUI morale;
+#pragma warning restore 0649
+
+        [SerializeField]
+#pragma warning disable 0649
         internal CanvasGroup almanacMenu;
 #pragma warning restore 0649
 
@@ -50,12 +55,22 @@ namespace Assets.MonoBehaviours
 
         [SerializeField]
 #pragma warning disable 0649
+        internal TextMeshProUGUI almanacBadgeNumber;
+#pragma warning restore 0649
+
+        [SerializeField]
+#pragma warning disable 0649
         internal CanvasGroup inventoryMenu;
 #pragma warning restore 0649
 
         [SerializeField]
 #pragma warning disable 0649
         internal TextMeshProUGUI inventoryText;
+#pragma warning restore 0649
+
+        [SerializeField]
+#pragma warning disable 0649
+        internal TextMeshProUGUI inventoryBadgeNumber;
 #pragma warning restore 0649
 
         [SerializeField]

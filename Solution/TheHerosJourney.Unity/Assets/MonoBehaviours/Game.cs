@@ -8,7 +8,6 @@ using System.Linq;
 using System.Net.Http;
 using TMPro;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Newtonsoft.Json;
 
@@ -21,9 +20,7 @@ namespace Assets.MonoBehaviours
         private GameUi gameUi;
 #pragma warning restore 0649
 
-        private Story Story;
-
-        private TheHerosJourney.Models.Scene currentScene = null;
+        private Scene currentScene = null;
 
         private string choice1Text = "";
         private string choice2Text = "";
@@ -59,7 +56,8 @@ namespace Assets.MonoBehaviours
             {
                 StoryScroll.AddText(
                         gameUi,
-                        "Sorry, the Neverending Story couldn't load because it can't find the files it needs.",
+                        null,
+                        "Sorry, One Thousand Faces couldn't load because it can't find the files it needs.",
                         "First, make sure you're running the most current version.",
                         "Then, if you are and this still happens, contact the developer and tell him to fix it.",
                         "Thanks! <3"
@@ -82,11 +80,11 @@ namespace Assets.MonoBehaviours
                     string rawJson = File.ReadAllText(saveFilePath);
                     var savedGameData = JsonConvert.DeserializeObject<SavedGameData>(rawJson);
                     string storyText;
-                    (Story, storyText) = Process.LoadStoryFrom(Data.FileData, savedGameData);
+                    (Data.Story, storyText) = Process.LoadStoryFrom(Data.FileData, savedGameData);
                     
                     // ADD THE TEXT OF THE PREVIOUS STORY TO THE SCREEN
                     // AND SCROLL TO THE BOTTOM.
-                    StoryScroll.AddText(gameUi, new[] { storyText }, isLoading: true);
+                    StoryScroll.AddText(gameUi, null, new[] { storyText }, isLoading: true);
 
                     var targetLine = gameUi.storyText.textInfo.characterInfo.Reverse()
                         .SkipWhile(c => c.character == '\0')
@@ -95,8 +93,8 @@ namespace Assets.MonoBehaviours
                         .First().lineNumber;
                     StoryScroll.ScrollToSmooth(gameUi, targetLine, Line.AtTop);
 
-                    Data.PlayersName = Story.You.Name;
-                    Data.PlayersSex = Story.You.Sex;
+                    Data.PlayersName = Data.Story.You.Name;
+                    Data.PlayersSex = Data.Story.You.Sex;
                     timeJourneyStarted = savedGameData.TimeJourneyStarted;
                 }
                 catch (Exception exception)
@@ -109,9 +107,9 @@ namespace Assets.MonoBehaviours
             }
 
             // IF A STORY COULDN'T BE LOADED ABOVE, FOR ANY REASON...
-            if (Story == null)
+            if (Data.Story == null)
             {
-                Story = Run.NewStory(Data.FileData, null, Data.StorySeed, Data.ScenesToTest);
+                Data.Story = Run.NewStory(Data.FileData, null, Data.StorySeed, Data.ScenesToTest);
 
                 // IF THE NAME IS BLANK, MAKE ONE UP.
                 // TODO: MAKE UP A NAME RANDOMLY. MAYBE HAVE THIS HAPPEN IN Run.LoadGame? Name could be an extra parameter.
@@ -120,8 +118,8 @@ namespace Assets.MonoBehaviours
                     Data.PlayersName = "Marielle";
                 }
 
-                Story.You.Name = Data.PlayersName;
-                Story.You.Sex = Data.PlayersSex;
+                Data.Story.You.Name = Data.PlayersName;
+                Data.Story.You.Sex = Data.PlayersSex;
             }
 
             SaveGame();
@@ -129,8 +127,11 @@ namespace Assets.MonoBehaviours
             GetNextScene();
         }
 
+        private int morale = 0;
+        private int inventorySize = 0;
+        private int journalSize = 0;
         /// <summary>
-        /// HANDLE SCROLLING.
+        /// HANDLE SCROLLING AND BADGE NUMBER CHANGES.
         /// </summary>
         private void Update()
         {
@@ -178,6 +179,26 @@ namespace Assets.MonoBehaviours
             {
                 gameUi.scrollToEndButton.SetActive(false);
             }
+
+            if (Data.Story.Morale != morale)
+            {
+                gameUi.morale.text = $"Morale: {Data.Story.Morale}";
+                // ANIMATE MORALE
+            }
+
+            if (Data.Story.You.Inventory.Count != inventorySize)
+            {
+                inventorySize = Data.Story.You.Inventory.Count;
+                gameUi.inventoryBadgeNumber.text = inventorySize.ToString();
+                // ANIMATE INVENTORY
+            }
+
+            if (Data.Story.Almanac.Count != journalSize)
+            {
+                journalSize = Data.Story.Almanac.Count;
+                gameUi.almanacBadgeNumber.text = journalSize.ToString();
+                // ANIMATE JOURNAL
+            }
         }
 
         private static bool ChoiceButtonsAreShowing(GameUi gameUi)
@@ -197,15 +218,12 @@ namespace Assets.MonoBehaviours
         /// <param name="message">The message to print, usually from TheHerosJourney module somewhere.</param>
         private void WriteMessage(string message)
         {
-            string processedMessage = Process.Message(Data.FileData, Story, message, skipCommands: true);
-
-            // TODO: Move this line to the StoryScroll class, so that
-            // commands ONLY get processed when we actually SEE that paragraph.
-            processedMessage = Process.Message(Data.FileData, Story, message, skipCommands: false);
+            var commands = new List<Action<FileData, Story>>();
+            string processedMessage = Process.Message(Data.FileData, Data.Story, message, commands);
 
             var paragraphs = processedMessage.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
-            StoryScroll.AddText(gameUi, paragraphs);
+            StoryScroll.AddText(gameUi, commands, paragraphs);
         }
 
         //private static int currentCharacterInt = 0;
@@ -219,9 +237,13 @@ namespace Assets.MonoBehaviours
             choice1Text = "";
             choice2Text = "";
 
+            // COMMANDS ARE BEING STORED IN THE StoryScroll.cs CLASS, CURRENTLY.
+            // PROBABLY MOVE THEM INTO THIS CLASS, WITH A CALLBACK IN THE StoryScroll.cs CLASS?
+            StoryScroll.FlushRemainingCommands(Data.FileData, Data.Story);
+
             do
             {
-                currentScene = Run.NewScene(Data.FileData, Story, WriteMessage);
+                currentScene = Run.NewScene(Data.FileData, Data.Story, WriteMessage);
 
                 choicesExist = Run.PresentChoices(currentScene, PresentChoices, WriteMessage);
             }
@@ -229,7 +251,7 @@ namespace Assets.MonoBehaviours
 
             if (currentScene == null)
             {
-                StoryScroll.AddText(gameUi, "", "THE END");
+                StoryScroll.AddText(gameUi, null, "", "THE END");
 
                 // WRITE STORY TO LOG FILE.
                 // TODO: IMPROVE THIS, MAYBE?
@@ -590,11 +612,11 @@ namespace Assets.MonoBehaviours
         {
             gameUi.soundEffects.PlayJournalOpen();
 
-            var almanacLines = Story.Almanac
+            var almanacLines = Data.Story.Almanac
                         .Select(i => "* <indent=15px><b>" + i.Key + "</b> - " + i.Value + "</indent>")
                         .ToArray();
 
-            var almanacMessage = "<b>" + Story.You.Name + ", you're in " + Story.You.CurrentLocation.NameWithThe + ".</b>" +
+            var almanacMessage = "<b>" + Data.Story.You.Name + ", you're in " + Data.Story.You.CurrentLocation.NameWithThe + ".</b>" +
                 Environment.NewLine + Environment.NewLine +
                 "Here are people you've met and places you've been or heard of:" +
                 Environment.NewLine + Environment.NewLine +
@@ -607,7 +629,7 @@ namespace Assets.MonoBehaviours
 
         public void ShowInventory()
         {
-            var inventoryLines = Story.You.Inventory.Select(i => "* <indent=15px><b>" + i.Name + "</b> - " + i.Description + "</indent>");
+            var inventoryLines = Data.Story.You.Inventory.Select(i => "* <indent=15px><b>" + i.Name + "</b> - " + i.Description + "</indent>");
 
             var inventoryMessage = "Here are things you're carrying with you:" +
                 Environment.NewLine + Environment.NewLine +
@@ -648,9 +670,9 @@ namespace Assets.MonoBehaviours
             {
                 { "Message", message },
                 { "Type", type },
-                { "Seed", Story.Seed },
-                { "Name", Story.You.Name },
-                { "Sex", Story.You.Sex.ToString() },
+                { "Seed", Data.Story.Seed },
+                { "Name", Data.Story.You.Name },
+                { "Sex", Data.Story.You.Sex.ToString() },
                 { "StorySoFar", StoryScroll.GetScrollText(gameUi) }
             };
 
@@ -810,7 +832,7 @@ namespace Assets.MonoBehaviours
                 var textMesh = button.GetComponentInChildren<TextMeshProUGUI>();
                 if (textMesh != null)
                 {
-                    string processedText = Process.Message(Data.FileData, Story, text);
+                    string processedText = Process.Message(Data.FileData, Data.Story, text, new List<Action<FileData, Story>>());
                     textMesh.text = processedText;
                 }
             }
@@ -855,7 +877,7 @@ namespace Assets.MonoBehaviours
             }
             var saveFilePath = Path.Combine(saveFolderPath, saveFileName);
 
-            var savedGameData = Process.GetSavedGameFrom(Data.FileData, Story, StoryScroll.GetScrollText(gameUi), timeJourneyStarted);
+            var savedGameData = Process.GetSavedGameFrom(Data.FileData, Data.Story, StoryScroll.GetScrollText(gameUi), timeJourneyStarted);
             string rawJson = JsonConvert.SerializeObject(savedGameData);
             File.WriteAllText(saveFilePath, rawJson);
         }

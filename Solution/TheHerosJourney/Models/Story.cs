@@ -24,6 +24,7 @@ namespace TheHerosJourney.Models
 
         public Character You { get; internal set; }
 
+        public int Morale { get; internal set; }
 
         // ***********
         // CHARACTERS

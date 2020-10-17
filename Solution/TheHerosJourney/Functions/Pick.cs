@@ -190,6 +190,7 @@ namespace TheHerosJourney.Functions
             var nextAdventure = fileData.Adventures.Where(adventure => !adventure.Done).Random();
 
             story.Adventure = nextAdventure;
+            story.Morale = 10;
 
             return story;
         }

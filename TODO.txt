@@ -7,6 +7,9 @@ Roads run THROUGH some other place
 
 Buildings exist inside Towns
 
+MORALE STAT
+SHOW "PROGRESS" METER: How far through the Hero's Journey are you?
+
 
 UNITY INTERFACE ONLY
 
