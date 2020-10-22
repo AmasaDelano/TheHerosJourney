@@ -1,6 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -79,103 +78,40 @@ namespace TheHerosJourney.MonoGame
 
             story = RunGame.NewStory(fileData);
 
-            string newText = "";
-            currentScene = RunGame.NewScene(fileData, story, text => newText += text);
-            scrollData.storySoFar.AddRange(ProcessMessage(fileData, story, scrollData, Window, newText));
-            scrollData.storySoFar.AddRange(ProcessMessage(fileData, story, scrollData, Window, $"<i>You {LowercaseFirstLetter(currentScene.Choice1)}.</i>"));
+            for (int i = 0; i < 20; i += 1)
+            {
+                string sceneText = "";
+                currentScene = RunGame.NewScene(fileData, story, text => sceneText += text);
+                scrollData.storySoFar.AddRange(ProcessMessage(fileData, story, scrollData, Window, sceneText));
 
-            newText = "";
-            currentScene = RunGame.NewScene(fileData, story, text => newText += text);
-            scrollData.storySoFar.AddRange(ProcessMessage(fileData, story, scrollData, Window, newText));
-            scrollData.storySoFar.AddRange(ProcessMessage(fileData, story, scrollData, Window, $"<i>You {LowercaseFirstLetter(currentScene.Choice1)}.</i>"));
-
-            newText = "";
-            currentScene = RunGame.NewScene(fileData, story, text => newText += text);
-            scrollData.storySoFar.AddRange(ProcessMessage(fileData, story, scrollData, Window, newText));
-            scrollData.storySoFar.AddRange(ProcessMessage(fileData, story, scrollData, Window, $"<i>You {LowercaseFirstLetter(currentScene.Choice1)}.</i>"));
+                if (RunGame.PresentChoices(currentScene, (c1, c2) => { return; }))
+                {
+                    string outroText = "";
+                    RunGame.Choose2(currentScene, text => outroText += text);
+                    scrollData.storySoFar.AddRange(ProcessMessage(fileData, story, scrollData, Window, outroText));
+                }
+            }
         }
 
         private static IEnumerable<Letter> ProcessMessage(FileData fileData, Story story, ScrollData scrollData, GameWindow window, string newText)
         {
             var commands = new List<Action<FileData, Story>>();
-            var replacedText = Process.Message(fileData, story, newText, commands);
+            var replacedText = Process.Message(fileData, story, newText, commands, out int[] commandIndexes);
             commands.ForEach(command => command.Invoke(fileData, story));
-            replacedText = Regex.Replace(replacedText, "{\\d?}", "", RegexOptions.IgnoreCase);
-            replacedText += "\n";
 
-            return Letters.Get(scrollData.storyFonts[""], replacedText, window.ClientBounds.Width - 100);
-        }
-
-        private static string LowercaseFirstLetter(string text)
-        {
-            if (text == null || text.Length == 0)
-            {
-                return text;
-            }
-
-            var replaced = text[0].ToString().ToLower() + new string(text.Skip(1).ToArray());
-
-            return replaced;
-        }
-
-        private static bool IsPressed(string key)
-        {
-            const float deadZone = 0.05F;
-
-            if (key == Button.Continue)
-            {
-                return GamePad.GetState(PlayerIndex.One).Buttons.A == ButtonState.Pressed
-                    || Keyboard.GetState().IsKeyDown(Keys.Space);
-            }
-
-            if (key == Button.Up)
-            {
-                return GamePad.GetState(PlayerIndex.One).DPad.Up == ButtonState.Pressed
-                    || GamePad.GetState(PlayerIndex.One).ThumbSticks.Left.Y > deadZone
-                    || Keyboard.GetState().IsKeyDown(Keys.Up)
-                    || Keyboard.GetState().IsKeyDown(Keys.W);
-            }
-
-            if (key == Button.Down)
-            {
-                return GamePad.GetState(PlayerIndex.One).DPad.Down == ButtonState.Pressed
-                    || GamePad.GetState(PlayerIndex.One).ThumbSticks.Left.Y < -deadZone
-                    || Keyboard.GetState().IsKeyDown(Keys.Down)
-                    || Keyboard.GetState().IsKeyDown(Keys.S);
-            }
-
-            return false;
+            return Letters.Get(replacedText);
         }
 
         protected override void Update(GameTime gameTime)
         {
             // HANDLE INPUT
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
-            {
-                Exit();
-            }
-
-            if (IsPressed(Button.Continue))
-            {
-                scrollData.letterToShow = scrollData.storySoFar.Count;
-            }
-
-
-            if (IsPressed(Button.Up))
-            {
-                scrollData.topOfText = ScrollText.Up(scrollData, gameTime);
-            }
-
-            if (IsPressed(Button.Down))
-            {
-                scrollData.topOfText = ScrollText.Down(scrollData, gameTime);
-            }
-
+            Input.Handle(scrollData, gameTime, Exit);
 
             // FADE IN CHARACTERS
-            const int lettersPerSecond = 40;
+            const int lettersPerSecond = (int) LettersPerSecond.Fast;
             const int secondsToFadeIn = 3;
             scrollData.letterToShow += lettersPerSecond * gameTime.ElapsedGameTime.TotalSeconds;
+            scrollData.letterToShow = Math.Min(scrollData.letterToShow, scrollData.storySoFar.Count);
             scrollData.storySoFar.Take((int) Math.Floor(scrollData.letterToShow)).ToList().ForEach(letter =>
             {
                 letter.Opacity += gameTime.ElapsedGameTime.TotalSeconds / secondsToFadeIn;
@@ -184,6 +120,9 @@ namespace TheHerosJourney.MonoGame
                     letter.Opacity = 1;
                 }
             });
+
+            // RUN COMMANDS
+
 
             base.Update(gameTime);
         }
@@ -194,8 +133,8 @@ namespace TheHerosJourney.MonoGame
 
             spriteBatch.Begin();
 
-            Letters.Draw(spriteBatch, scrollData);
-            
+            Letters.Draw(spriteBatch, scrollData, leftEdge: 50F, maxWidth: Window.ClientBounds.Width - 100);
+
             spriteBatch.End();
 
             base.Draw(gameTime);

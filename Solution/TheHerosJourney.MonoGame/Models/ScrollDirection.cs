@@ -2,7 +2,7 @@
 {
     internal enum ScrollDirection
     {
-        Up = -1,
-        Down = 1
+        Up = 1,
+        Down = -1
     }
 }

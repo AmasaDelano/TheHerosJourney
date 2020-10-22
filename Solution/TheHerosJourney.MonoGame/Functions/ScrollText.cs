@@ -6,8 +6,10 @@ namespace TheHerosJourney.MonoGame.Functions
 {
     internal static class ScrollText
     {
-        private const int topEdge = 50;
-        private const int slowScrollSpeed = 4;
+        private const int TopEdge = 50;
+
+        private const double SecondsToMediumSpeed = 0.8;
+        private const double SecondsToTransition = 0.5;
 
         internal static float Up(ScrollData scrollData, GameTime gameTime)
         {
@@ -23,25 +25,43 @@ namespace TheHerosJourney.MonoGame.Functions
         {
             var endPos = scrollData.topOfText;
 
+            double scrollSpeed = (int) ScrollSpeed.Slow;
+            {
+                var secondsScrolling = gameTime.TotalGameTime.TotalSeconds - scrollData.totalSecondsStartedScrolling;
+                if (secondsScrolling.HasValue && secondsScrolling > SecondsToMediumSpeed)
+                {
+                    if (secondsScrolling >= SecondsToMediumSpeed + SecondsToTransition)
+                    {
+                        scrollSpeed = (int) ScrollSpeed.Fast;
+                    }
+                    else
+                    {
+                        scrollSpeed = Mathf.Lerp((int) ScrollSpeed.Slow, (int) ScrollSpeed.Fast, secondsScrolling.Value - SecondsToMediumSpeed);
+                    }
+                }
+            }
+
             endPos += (float)(
-                slowScrollSpeed *
+                (int) scrollSpeed *
                 gameTime.ElapsedGameTime.TotalSeconds *
                 scrollData.storyFonts[""].LineSpacing *
                 (int) scrollDirection
             );
 
-            if (endPos > topEdge)
+            if (endPos > TopEdge)
             {
-                endPos = topEdge;
+                endPos = TopEdge;
             }
 
             int numLines = scrollData.storySoFar.Count(s => s.Character == '\n') + 1;
-            float bottomEdge = topEdge - (scrollData.storyFonts[""].LineSpacing * (numLines - 1));
+            float bottomEdge = TopEdge - (scrollData.storyFonts.First().Value.LineSpacing * (numLines - 1));
 
             if (endPos < bottomEdge)
             {
                 endPos = bottomEdge;
             }
+
+            scrollData.lastScrollDirection = scrollDirection;
 
             return endPos;
         }

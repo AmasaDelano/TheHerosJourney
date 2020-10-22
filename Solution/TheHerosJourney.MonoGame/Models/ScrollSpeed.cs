@@ -2,8 +2,7 @@
 {
     internal enum ScrollSpeed
     {
-        Slow = 4,
-        Medium = 10,
+        Slow = 6,
         Fast = 20
     }
 }

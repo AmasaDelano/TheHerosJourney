@@ -18,6 +18,18 @@ namespace TheHerosJourney.Functions
             return text.Substring(0, 1).ToUpper() + text.Substring(1);
         }
 
+        internal static string LowercaseFirstLetter(this string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return text;
+            }
+
+            var replaced = text.Substring(0, 1).ToLower() + text.Substring(1);
+
+            return replaced;
+        }
+
         internal static T[] ParseToValidTypes<T>(this IEnumerable<string> rawTypes)
             where T : struct
         {
@@ -46,26 +58,32 @@ namespace TheHerosJourney.Functions
             return null;
         }
 
-        public static string Message(FileData fileData, Story story, string message, List<Action<FileData, Story>> commands)
+        public static string Message(FileData fileData, Story story, string message, List<Action<FileData, Story>> commands, out int[] finalCommandIndexes)
         {
-            /*static */string subMessage(string subMessageText, Story pStory, FileData pFileData, List<Action<FileData, Story>> pCommands)
+            /*static */string subMessage(string subMessageText, Story pStory, FileData pFileData, List<Action<FileData, Story>> pCommands, List<int> pCommandIndexes)
             {
                 var replacedSubMessage = subMessageText.Replace("[", "{").Replace("]", "}").Replace("-", ":");
 
-                string processedSubMessage = Process.Message(pFileData, pStory, replacedSubMessage, pCommands);
+                string processedSubMessage = Process.Message(pFileData, pStory, replacedSubMessage, pCommands, out int[] ppCommandIndexes);
+                pCommandIndexes.AddRange(ppCommandIndexes);
 
                 return processedSubMessage;
             }
 
-            /*static */string addCommand(Action<FileData, Story> command, List<Action<FileData, Story>> pCommands)
+            /*static */void addCommand(
+                           int commandIndex,
+                           List<int> pCommandIndexes,
+                           Action<FileData, Story> command,
+                           List<Action<FileData, Story>> pCommands)
             {
+                pCommandIndexes.Add(commandIndex);
                 pCommands.Add(command);
-                return $"{{{pCommands.Count}}}";
             }
 
             var replacements = Regex.Matches(message, "\\{.+?\\}");
 
             string replacedMessage = message;
+            List<int> commandIndexes = new List<int>();
 
             foreach (Match replacement in replacements)
             {
@@ -84,7 +102,7 @@ namespace TheHerosJourney.Functions
 
                     if (commandOptions.Length == 1)
                     {
-                        replacementValue = addCommand((fd, s) =>
+                        addCommand(replacedMessage.IndexOf(replacement.Value), commandIndexes, (fd, s) =>
                         {
                             s.NextSceneIdentifier = commandOptions[0];
                         }, commands);
@@ -93,18 +111,18 @@ namespace TheHerosJourney.Functions
                     {
                         if (commandOptions[0] == "GIVE" && commandOptions.Length == 4)
                         {
-                            replacementValue = addCommand((fd, s) =>
+                            addCommand(replacedMessage.IndexOf(replacement.Value), commandIndexes, (fd, s) =>
                             {
                                 var subCommands = new List<Action<FileData, Story>>();
                                 
                                 var item = new Item
                                 {
-                                    Identifier = subMessage(commandOptions[1], s, fd, subCommands),
-                                    Name = subMessage(commandOptions[2], s, fd, subCommands),
-                                    Description = subMessage(commandOptions[3], s, fd, subCommands)
+                                    Identifier = subMessage(commandOptions[1], s, fd, subCommands, commandIndexes),
+                                    Name = subMessage(commandOptions[2], s, fd, subCommands, commandIndexes),
+                                    Description = subMessage(commandOptions[3], s, fd, subCommands, commandIndexes)
                                 };
 
-                                item.Description = subMessage(item.Description, s, fd, subCommands);
+                                item.Description = subMessage(item.Description, s, fd, subCommands, commandIndexes);
 
                                 subCommands.ForEach(sc => sc.Invoke(fd, s));
 
@@ -113,7 +131,7 @@ namespace TheHerosJourney.Functions
                         }
                         else if (commandOptions[0] == "REMOVE" && commandOptions.Length == 2)
                         {
-                            replacementValue = addCommand((fd, s) =>
+                            addCommand(replacedMessage.IndexOf(replacement.Value), commandIndexes, (fd, s) =>
                             {
                                 var item = s.You.Inventory.FirstOrDefault(i => i.Identifier == commandOptions[1]);
 
@@ -125,7 +143,7 @@ namespace TheHerosJourney.Functions
                         }
                         else if (commandOptions[0] == "RENAME" && commandOptions.Length == 4)
                         {
-                            replacementValue = addCommand((fd, s) =>
+                            addCommand(replacedMessage.IndexOf(replacement.Value), commandIndexes, (fd, s) =>
                             {
                                 var item = s.You.Inventory.FirstOrDefault(i => i.Identifier == commandOptions[1]);
 
@@ -138,10 +156,9 @@ namespace TheHerosJourney.Functions
                         }
                         else if (commandOptions[0] == "GOTO" && commandOptions.Length >= 2)
                         {
-                            replacementValue = addCommand((fd, s) =>
+                            addCommand(replacedMessage.IndexOf(replacement.Value), commandIndexes, (fd, s) =>
                             {
-                                Location newLocation;
-                                bool namedLocationExists = s.NamedLocations.TryGetValue(commandOptions[1], out newLocation);
+                                bool namedLocationExists = s.NamedLocations.TryGetValue(commandOptions[1], out Location newLocation);
 
                                 if (namedLocationExists)
                                 {
@@ -166,21 +183,20 @@ namespace TheHerosJourney.Functions
                             {
                                 if (flagValue == "hometown")
                                 {
-                                    replacementValue = addCommand((fd, s) => s.You.Goal = s.You.Hometown, commands);
+                                    addCommand(replacedMessage.IndexOf(replacement.Value), commandIndexes, (fd, s) => s.You.Goal = s.You.Hometown, commands);
                                 }
                                 else
                                 {
-                                    replacementValue = addCommand((fd, s) =>
+                                    addCommand(replacedMessage.IndexOf(replacement.Value), commandIndexes, (fd, s) =>
                                     {
                                         s.NamedLocations.TryGetValue(flagValue, out Location goalLocation);
-
                                         s.You.Goal = goalLocation;
                                     }, commands);
                                 }
                             }
                             else
                             {
-                                replacementValue = addCommand((fd, s) => s.Flags[flagKey] = flagValue, commands);
+                                addCommand(replacedMessage.IndexOf(replacement.Value), commandIndexes, (fd, s) => s.Flags[flagKey] = flagValue, commands);
                             }
                         }
                         else if (commandOptions[0] == "MORALE" && commandOptions.Length == 2)
@@ -189,7 +205,7 @@ namespace TheHerosJourney.Functions
 
                             if (success)
                             {
-                                replacementValue = addCommand((fd, s) => s.Morale += moraleChange, commands);
+                                addCommand(replacedMessage.IndexOf(replacement.Value), commandIndexes, (fd, s) => s.Morale += moraleChange, commands);
                             }
                         }
                     }
@@ -222,14 +238,14 @@ namespace TheHerosJourney.Functions
 
                     if (conditionIsTrue)
                     {
-                        replacementValue = subMessage(keyPieces.Last(), story, fileData, commands);
+                        replacementValue = subMessage(keyPieces.Last(), story, fileData, commands, commandIndexes);
                     }
                 }
                 else if (primaryKey == "almanac" && keyPieces.Length >= 3)
                 {
                     // STORE THE LOCATION IN THE ALMANAC.
-                    string almanacTitle = subMessage(keyPieces[1], story, fileData, commands).CapitalizeFirstLetter();
-                    string almanacDescription = subMessage(keyPieces[2], story, fileData, commands);
+                    string almanacTitle = subMessage(keyPieces[1], story, fileData, commands, commandIndexes).CapitalizeFirstLetter();
+                    string almanacDescription = subMessage(keyPieces[2], story, fileData, commands, commandIndexes);
 
                     if (story.Almanac.TryGetValue(almanacTitle, out string existingDescription)
                         && !(keyPieces.Length == 4 && keyPieces[3] == "reset"))
@@ -244,7 +260,10 @@ namespace TheHerosJourney.Functions
                         }
                     }
 
-                    replacementValue = addCommand((fd, s) => s.Almanac[almanacTitle] = almanacDescription, commands);
+                    addCommand(replacedMessage.IndexOf(replacement.Value), commandIndexes, (fd, s) =>
+                    {
+                        s.Almanac[almanacTitle] = almanacDescription;
+                    }, commands);
                 }
                 else if (primaryKey == "location")
                 {
@@ -599,6 +618,8 @@ namespace TheHerosJourney.Functions
 
                 replacedMessage = replacedMessage.Replace("{" + key + "}", replacementValue);
             }
+
+            finalCommandIndexes = commandIndexes.ToArray();
 
             return replacedMessage;
         }

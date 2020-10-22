@@ -70,17 +70,17 @@ namespace TheHerosJourney.Functions
             return newScene;
         }
 
-        public static void Outro1(Scene currentScene, string actionText, Action<string> addTextToStory)
+        public static void Choose1(Scene currentScene, Action<string> addTextToStory)
         {
-            Outro(1, currentScene, actionText, addTextToStory);
+            Choose(1, currentScene, addTextToStory);
         }
 
-        public static void Outro2(Scene currentScene, string actionText, Action<string> addTextToStory)
+        public static void Choose2(Scene currentScene, Action<string> addTextToStory)
         {
-            Outro(2, currentScene, actionText, addTextToStory);
+            Choose(2, currentScene, addTextToStory);
         }
 
-        private static void Outro(byte outroNum, Scene currentScene, string actionText, Action<string> addTextToStory)
+        private static void Choose(byte outroNum, Scene currentScene, Action<string> addTextToStory)
         {
             if (currentScene == null)
             {
@@ -88,14 +88,17 @@ namespace TheHerosJourney.Functions
                 return;
             }
 
+            string actionText = outroNum == 1 ? currentScene.Choice1 : currentScene.Choice2;
+            actionText = $"<i>You {actionText.LowercaseFirstLetter()}.</i>";
+
             string outro = outroNum == 1 ? currentScene.Outro1 : currentScene.Outro2;
 
-            addTextToStory(actionText + Environment.NewLine + Environment.NewLine + outro);
+            addTextToStory("\n" + actionText + "\n\n" + outro);
 
             currentScene.Done = true;
         }
 
-        public static bool PresentChoices(Scene currentScene, Action<string, string> presentChoices, Action<string> addTextToStory)
+        public static bool PresentChoices(Scene currentScene, Action<string, string> presentChoices)
         {
             if (currentScene == null)
             {

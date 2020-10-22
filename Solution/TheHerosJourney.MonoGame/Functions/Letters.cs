@@ -3,7 +3,6 @@ using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using TheHerosJourney.MonoGame.Models;
 
@@ -11,13 +10,10 @@ namespace TheHerosJourney.MonoGame.Functions
 {
     internal static class Letters
     {
-        internal static void Draw(SpriteBatch spriteBatch, ScrollData scrollData)
+        internal static void Draw(SpriteBatch spriteBatch, ScrollData scrollData, float leftEdge, float maxWidth)
         {
-            const int leftEdge = 50;
-            Vector2 position = new Vector2(leftEdge, scrollData.topOfText);
-            foreach (var letter in scrollData.storySoFar)
+            static SpriteFont getFont(ScrollData scrollData, Letter letter)
             {
-                // PICK THE FONT
                 string fontKey = "";
                 if (letter.IsBold)
                 {
@@ -28,62 +24,90 @@ namespace TheHerosJourney.MonoGame.Functions
                     fontKey += "Italic";
                 }
                 var storyFont = scrollData.storyFonts[fontKey];
+                return storyFont;
+            }
 
-                if (letter.Character == '\n')
+            static float measureWidth(ScrollData scrollData, IEnumerable<Letter> letters)
+            {
+                var width = letters.Sum(letter =>
                 {
-                    position = new Vector2(leftEdge, position.Y + storyFont.LineSpacing);
-                    continue;
+                    var storyFont = getFont(scrollData, letter);
+                    var glyph = storyFont.GetGlyphs()[letter.Character];
+
+                    var width = storyFont.Spacing + glyph.WidthIncludingBearings;
+                    return width;
+                });
+
+                return width;
+            }
+
+            static Vector2 drawWord(SpriteBatch spriteBatch, ScrollData scrollData, IEnumerable<Letter> letters, Vector2 startPosition)
+            {
+                var position = startPosition;
+
+                foreach (var letter in letters)
+                {
+                    var storyFont = getFont(scrollData, letter);
+                    var glyph = storyFont.GetGlyphs()[letter.Character];
+
+                    position += Vector2.UnitX * (storyFont.Spacing + glyph.LeftSideBearing);
+
+                    spriteBatch.Draw(
+                        storyFont.Texture,
+                        position + new Vector2(glyph.Cropping.X, glyph.Cropping.Y),
+                        glyph.BoundsInTexture,
+                        Color.White * (float)letter.Opacity
+                        );
+
+                    position += Vector2.UnitX * (glyph.Width + glyph.RightSideBearing);
                 }
 
-                var letterString = letter.Character.ToString();
+                return position;
+            }
 
-                spriteBatch.DrawString(
-                    storyFont,
-                    letterString,
-                    position,
-                    Color.White * (float)letter.Opacity
-                    );
+            static Vector2 goToNextLine(float leftEdge, Vector2 position, SpriteFont storyFont)
+            {
+                var nextPosition = new Vector2(leftEdge, position.Y + storyFont.LineSpacing);
+                return nextPosition;
+            }
+            Vector2 position = new Vector2(leftEdge, scrollData.topOfText);
 
-                position += new Vector2(storyFont.MeasureString(letterString).X, 0);
-                //position += new Vector2(storyFont.Spacing, 0);
+            var wordBuffer = new List<Letter>();
+
+            foreach (var letter in scrollData.storySoFar)
+            {
+                // PICK THE FONT
+
+                // IF WORD IS DONE, WRITE IT AND CLEAR THE BUFFER.
+                if (letter.Character == ' ' || letter.Character == '\n')
+                {
+                    var width = measureWidth(scrollData, wordBuffer);
+
+                    // IF THIS IS THE END OF A LINE, SHIFT IT DOWN.
+                    if (position.X + width > maxWidth - leftEdge || letter.Character == '\n')
+                    {
+                        var storyFont = getFont(scrollData, letter);
+                        position = goToNextLine(leftEdge, position, storyFont);
+                    }
+                    else if (letter.Character == ' ')
+                    {
+                        wordBuffer.Add(letter);
+                    }
+
+                    var newPosition = drawWord(spriteBatch, scrollData, wordBuffer, position);
+                    position = newPosition;
+                    wordBuffer.Clear();
+                }
+                else
+                {
+                    // ADD LETTER TO WORD BUFFER
+                    wordBuffer.Add(letter);
+                }
             }
         }
 
-        internal static IEnumerable<Letter> Get(SpriteFont font, string text, int width)
+        internal static IEnumerable<Letter> Get(string text)
         {
-            static string WrapText(SpriteFont spriteFont, string text, float maxLineWidth)
-            {
-                string[] words = text.Split(' ', '\n');
-                StringBuilder sb = new StringBuilder();
-                float lineWidth = 0f;
-                float spaceWidth = spriteFont.MeasureString(" ").X;
-
-                foreach (string word in words)
-                {
-                    Vector2 size = spriteFont.MeasureString(word);
-
-                    if (word.Length == 0)
-                    {
-                        sb.Append("\n\n");
-                        lineWidth = 0;
-                    }
-                    else if (lineWidth + size.X < maxLineWidth)
-                    {
-                        sb.Append(word + " ");
-                        lineWidth += size.X + spaceWidth;
-                    }
-                    else
-                    {
-                        sb.Append("\n" + word + " ");
-                        lineWidth = size.X + spaceWidth;
-                    }
-                }
-
-                return sb.ToString();
-            }
-
-            text = WrapText(font, text, width);
-
             const string startItalic = "<i>";
             const string endItalic = "</i>";
             const string startBold = "<b>";
@@ -132,6 +156,17 @@ namespace TheHerosJourney.MonoGame.Functions
                 }
 
                 var letter = text[index];
+
+                // REPLACE WEIRD CHARACTERS WITH MORE NORMAL ONES
+                switch (letter)
+                {
+                    case '’':
+                        letter = '\'';
+                        break;
+                    case '“':
+                        letter = '"';
+                        break;
+                }
 
                 characters.Add(new Letter
                 {
