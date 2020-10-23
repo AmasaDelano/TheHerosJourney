@@ -10,9 +10,9 @@ namespace TheHerosJourney.MonoGame.Functions
 {
     internal static class Letters
     {
-        internal static void Draw(SpriteBatch spriteBatch, ScrollData scrollData, float leftEdge, float maxWidth)
+        internal static void Draw(SpriteBatch spriteBatch, ScrollData scrollData, float leftMargin, Rectangle windowBounds)
         {
-            static SpriteFont getFont(ScrollData scrollData, Letter letter)
+            static FontData getFont(ScrollData scrollData, Letter letter)
             {
                 string fontKey = "";
                 if (letter.IsBold)
@@ -32,32 +32,42 @@ namespace TheHerosJourney.MonoGame.Functions
                 var width = letters.Sum(letter =>
                 {
                     var storyFont = getFont(scrollData, letter);
-                    var glyph = storyFont.GetGlyphs()[letter.Character];
+                    if (!storyFont.Glyphs.TryGetValue(letter.Character, out var glyph))
+                    {
+                        return 0;
+                    }
 
-                    var width = storyFont.Spacing + glyph.WidthIncludingBearings;
+                    var width = storyFont.Font.Spacing + glyph.WidthIncludingBearings;
                     return width;
                 });
 
                 return width;
             }
 
-            static Vector2 drawWord(SpriteBatch spriteBatch, ScrollData scrollData, IEnumerable<Letter> letters, Vector2 startPosition)
+            static Vector2 drawWord(SpriteBatch spriteBatch, ScrollData scrollData, IEnumerable<Letter> letters, Vector2 startPosition, Rectangle windowBounds)
             {
                 var position = startPosition;
 
                 foreach (var letter in letters)
                 {
                     var storyFont = getFont(scrollData, letter);
-                    var glyph = storyFont.GetGlyphs()[letter.Character];
+                    var glyph = storyFont.Glyphs[letter.Character];
 
-                    position += Vector2.UnitX * (storyFont.Spacing + glyph.LeftSideBearing);
+                    position += Vector2.UnitX * (storyFont.Font.Spacing + glyph.LeftSideBearing);
 
-                    spriteBatch.Draw(
-                        storyFont.Texture,
-                        position + new Vector2(glyph.Cropping.X, glyph.Cropping.Y),
-                        glyph.BoundsInTexture,
-                        Color.White * (float)letter.Opacity
-                        );
+                    // IF IT'S ON THE SCREEN, ACTUALLY DRAW IT
+                    {
+                        var letterBoundsOnCanvas = new Rectangle(position.ToPoint(), glyph.BoundsInTexture.Size);
+                        if (windowBounds.Intersects(letterBoundsOnCanvas))
+                        {
+                            spriteBatch.Draw(
+                                storyFont.Font.Texture,
+                                position + new Vector2(glyph.Cropping.X, glyph.Cropping.Y),
+                                glyph.BoundsInTexture,
+                                Color.White * (float)letter.Opacity
+                            );
+                        }
+                    }
 
                     position += Vector2.UnitX * (glyph.Width + glyph.RightSideBearing);
                 }
@@ -65,38 +75,53 @@ namespace TheHerosJourney.MonoGame.Functions
                 return position;
             }
 
-            static Vector2 goToNextLine(float leftEdge, Vector2 position, SpriteFont storyFont)
+            static Vector2 goToNextLine(float leftEdge, Vector2 position, FontData storyFont)
             {
-                var nextPosition = new Vector2(leftEdge, position.Y + storyFont.LineSpacing);
+                var nextPosition = new Vector2(leftEdge, position.Y + storyFont.Font.LineSpacing);
                 return nextPosition;
             }
-            Vector2 position = new Vector2(leftEdge, scrollData.topOfText);
+            
+            Vector2 position = new Vector2(leftMargin, scrollData.topOfText);
 
             var wordBuffer = new List<Letter>();
+            int numLines = 0;
+            var windowBoundsWithMargin = windowBounds;
+            windowBoundsWithMargin.Inflate(100, 100);
 
             foreach (var letter in scrollData.storySoFar)
             {
-                // PICK THE FONT
-
                 // IF WORD IS DONE, WRITE IT AND CLEAR THE BUFFER.
                 if (letter.Character == ' ' || letter.Character == '\n')
                 {
-                    var width = measureWidth(scrollData, wordBuffer);
+                    var wordWidth = measureWidth(scrollData, wordBuffer);
 
-                    // IF THIS IS THE END OF A LINE, SHIFT IT DOWN.
-                    if (position.X + width > maxWidth - leftEdge || letter.Character == '\n')
+                    // IF THIS WORD WOULD OVERFLOW, SHIFT IT DOWN TO THE NEXT LINE.
                     {
-                        var storyFont = getFont(scrollData, letter);
-                        position = goToNextLine(leftEdge, position, storyFont);
+                        var maxWidth = windowBounds.Width - 100;
+                        if (position.X + wordWidth > leftMargin + maxWidth)
+                        {
+                            var storyFont = getFont(scrollData, letter);
+                            position = goToNextLine(leftMargin, position, storyFont);
+                            numLines += 1;
+                        }
                     }
-                    else if (letter.Character == ' ')
+
+                    if (letter.Character == ' ')
                     {
                         wordBuffer.Add(letter);
                     }
 
-                    var newPosition = drawWord(spriteBatch, scrollData, wordBuffer, position);
-                    position = newPosition;
+                    // SET NEW POSITION
+                    position = drawWord(spriteBatch, scrollData, wordBuffer, position, windowBoundsWithMargin);
                     wordBuffer.Clear();
+
+                    // IF THE LINE ENDS AFTER THIS WORD, SHIFT DOWN.
+                    if (letter.Character == '\n')
+                    {
+                        var storyFont = getFont(scrollData, letter);
+                        position = goToNextLine(leftMargin, position, storyFont);
+                        numLines += 1;
+                    }
                 }
                 else
                 {
@@ -104,6 +129,8 @@ namespace TheHerosJourney.MonoGame.Functions
                     wordBuffer.Add(letter);
                 }
             }
+
+            scrollData.numLines = numLines;
         }
 
         internal static IEnumerable<Letter> Get(string text)
@@ -126,7 +153,7 @@ namespace TheHerosJourney.MonoGame.Functions
 
             while (index < text.Length)
             {
-
+                // MARK ITALIC AND BOLD EFFECT START AND STOP POINTS.
                 if (startItalicIndexes.Contains(index))
                 {
                     isItalic = true;
@@ -164,6 +191,7 @@ namespace TheHerosJourney.MonoGame.Functions
                         letter = '\'';
                         break;
                     case '“':
+                    case '”':
                         letter = '"';
                         break;
                 }

@@ -44,7 +44,7 @@ namespace TheHerosJourney.MonoGame.Functions
             endPos += (float)(
                 (int) scrollSpeed *
                 gameTime.ElapsedGameTime.TotalSeconds *
-                scrollData.storyFonts[""].LineSpacing *
+                scrollData.storyFonts[""].Font.LineSpacing *
                 (int) scrollDirection
             );
 
@@ -53,8 +53,10 @@ namespace TheHerosJourney.MonoGame.Functions
                 endPos = TopEdge;
             }
 
-            int numLines = scrollData.storySoFar.Count(s => s.Character == '\n') + 1;
-            float bottomEdge = TopEdge - (scrollData.storyFonts.First().Value.LineSpacing * (numLines - 1));
+            float bottomEdge = TopEdge -
+                (
+                    scrollData.storyFonts.First().Value.Font.LineSpacing * (scrollData.numLines - 1)
+                );
 
             if (endPos < bottomEdge)
             {

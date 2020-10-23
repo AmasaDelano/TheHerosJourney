@@ -93,7 +93,7 @@ namespace TheHerosJourney.Functions
 
             string outro = outroNum == 1 ? currentScene.Outro1 : currentScene.Outro2;
 
-            addTextToStory("\n" + actionText + "\n\n" + outro);
+            addTextToStory(actionText + "\n\n" + outro);
 
             currentScene.Done = true;
         }

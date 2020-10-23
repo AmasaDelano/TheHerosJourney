@@ -28,7 +28,7 @@ namespace TheHerosJourney.Test.Functions
             story.Morale = 0;
             var commands = new System.Collections.Generic.List<System.Action<FileData, Story>>();
 
-            Process.Message(fileData, story, message, commands);
+            Process.Message(fileData, story, message, commands, out int[] finalCommandIndexes);
             commands.ForEach(command => command.Invoke(fileData, story));
 
             Assert.AreEqual(expectedMorale, story.Morale);
