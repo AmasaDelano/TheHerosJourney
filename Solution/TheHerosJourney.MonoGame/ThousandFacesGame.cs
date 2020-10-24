@@ -1,12 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
-using TheHerosJourney.Functions;
-using TheHerosJourney.Models;
 using TheHerosJourney.MonoGame.Functions;
 using TheHerosJourney.MonoGame.Models;
 using RunGame = TheHerosJourney.Functions.Run;
@@ -15,16 +11,14 @@ namespace TheHerosJourney.MonoGame
 {
     public class ThousandFacesGame : Game
     {
-        private readonly GraphicsDeviceManager graphics;
+        private GraphicsDeviceManager graphics;
         private SpriteBatch spriteBatch;
 
         // DATA MODELS
-        private readonly ScrollData scrollData;
+        private readonly GameData gameData = new GameData();
+        private readonly UI ui = new UI();
 
         // FILE DATA
-        private FileData fileData;
-        private Story story;
-        private Scene currentScene;
 
         public ThousandFacesGame()
         {
@@ -37,8 +31,6 @@ namespace TheHerosJourney.MonoGame
 
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
-
-            scrollData = new ScrollData();
         }
 
         protected override void Initialize()
@@ -48,6 +40,10 @@ namespace TheHerosJourney.MonoGame
             graphics.ApplyChanges();
             Window.Position = Point.Zero;
 
+            Resolution.Init(ref graphics);
+            Resolution.SetVirtualResolution(1280, 720);
+            Resolution.SetResolution(Window.ClientBounds.Width, Window.ClientBounds.Height, FullScreen: true);
+
             base.Initialize();
         }
 
@@ -55,7 +51,7 @@ namespace TheHerosJourney.MonoGame
         {
             // LOAD FONTS INTO DICTIONARY
             spriteBatch = new SpriteBatch(GraphicsDevice);
-            void loadFont(ScrollData scrollData, string fontName)
+            FontData loadFont(string fontName)
             {
                 var fontKey = fontName;
                 if (!string.IsNullOrEmpty(fontKey))
@@ -70,12 +66,21 @@ namespace TheHerosJourney.MonoGame
                     Glyphs = font.GetGlyphs()
                 };
 
-                scrollData.storyFonts[fontName] = fontData;
+                return fontData;
             }
-            loadFont(scrollData, "");
-            loadFont(scrollData, "Bold");
-            loadFont(scrollData, "Italic");
-            loadFont(scrollData, "BoldItalic");
+            gameData.Fonts.Regular = loadFont("");
+            gameData.Fonts.Bold = loadFont("Bold");
+            gameData.Fonts.Italic = loadFont("Italic");
+            gameData.Fonts.BoldItalic = loadFont("BoldItalic");
+
+            // LOAD UI ELEMENTS
+            ui.ChoiceButton = this.Content.Load<Texture2D>("UI/Button");
+            ui.XboxA = this.Content.Load<Texture2D>("UI/ButtonPrompts/XboxOne/XboxOne_A");
+            ui.XboxB = this.Content.Load<Texture2D>("UI/ButtonPrompts/XboxOne/XboxOne_B");
+            ui.XboxX = this.Content.Load<Texture2D>("UI/ButtonPrompts/XboxOne/XboxOne_X");
+            ui.XboxY = this.Content.Load<Texture2D>("UI/ButtonPrompts/XboxOne/XboxOne_Y");
+            ui.XboxMenu = this.Content.Load<Texture2D>("UI/ButtonPrompts/XboxOne/XboxOne_Menu");
+            ui.XboxView = this.Content.Load<Texture2D>("UI/ButtonPrompts/XboxOne/XboxOne_View");
 
             // LOAD SCENE, CHARACTER, AND LOCATION DATA
             static Stream GetDataResourceStream(string resourceName)
@@ -91,81 +96,109 @@ namespace TheHerosJourney.MonoGame
             var scenesStream = GetDataResourceStream("scenes.csv");
             var adventuresStream = GetDataResourceStream("adventures.csv");
 
-            fileData = RunGame.LoadGameData(characterDataStream, locationDataStream, scenesStream, adventuresStream, () => { return; });
+            gameData.FileData = RunGame.LoadGameData(characterDataStream, locationDataStream, scenesStream, adventuresStream, () => { return; });
 
             // MAKE A NEW STORY
-            story = RunGame.NewStory(fileData);
+            gameData.Story = RunGame.NewStory(gameData.FileData);
 
-            // PLAY THROUGH, like, 20 SCENES AUTOMATICALLY,
-            // TO FILL OUT THE STORY FOR TESTING PURPOSES.
-            for (int i = 0; i < 20; i += 1)
-            {
-                string sceneText = "";
-                currentScene = RunGame.NewScene(fileData, story, text => sceneText += text);
-                scrollData.storySoFar.AddRange(ProcessMessage(fileData, story, sceneText));
-
-                if (RunGame.PresentChoices(currentScene, (c1, c2) => { return; }))
-                {
-                    string outroText = "";
-                    RunGame.Choose2(currentScene, text => outroText += text);
-                    scrollData.storySoFar.AddRange(ProcessMessage(fileData, story, outroText));
-                }
-            }
+            Input.GoToNextChoice(gameData);
         }
 
-        private static IEnumerable<Letter> ProcessMessage(FileData fileData, Story story, string newText)
-        {
-            var commands = new List<Action<FileData, Story>>();
-            var replacedText = Process.Message(fileData, story, newText, commands, out int[] commandIndexes);
-            commands.ForEach(command => command.Invoke(fileData, story));
-
-            replacedText += "\n\n";
-
-            return Letters.Get(replacedText);
-        }
-
+        private double? secondsToWaitAtNewLine = null;
         protected override void Update(GameTime gameTime)
         {
             // HANDLE INPUT
-            Input.Handle(scrollData, gameTime, Exit);
+            Input.Handle(gameData, gameTime);
 
-            const int lettersPerSecond = (int) LettersPerSecond.Fast;
-            const int secondsToFadeIn = 3;
+            const int lettersPerSecond = (int) LettersPerSecond.Slow;
+            const float secondsToFadeIn = 45F / lettersPerSecond;
 
             // FADE IN CHARACTERS
-            scrollData.letterToShow += lettersPerSecond * gameTime.ElapsedGameTime.TotalSeconds;
-            scrollData.letterToShow = Math.Min(scrollData.letterToShow, scrollData.storySoFar.Count);
-            {
-                var lettersToFadeIn = scrollData.storySoFar
-                    .Skip(scrollData.numLettersFullyShown)
-                    .Take((int)Math.Floor(scrollData.letterToShow))
-                    .ToArray();
-                for (int letterIndex = 0; letterIndex < lettersToFadeIn.Length; letterIndex += 1)
-                {
-                    var letter = lettersToFadeIn[letterIndex];
+            gameData.LetterToShow += lettersPerSecond * gameTime.ElapsedGameTime.TotalSeconds;
+            gameData.LetterToShow = Math.Min(gameData.LetterToShow, gameData.StorySoFar.Count);
 
-                    letter.Opacity += gameTime.ElapsedGameTime.TotalSeconds / secondsToFadeIn;
-                    if (letter.Opacity > 1)
+            for (int letterIndex = gameData.NumLettersFullyShown; letterIndex < gameData.LetterToShow; letterIndex += 1)
+            {
+                var letter = gameData.StorySoFar[letterIndex];
+
+                // DELAY FOR A BIT IF THIS IS A NEW PARAGRAPH.
+                if (letter.Character == '\n')
+                {
+                    if (secondsToWaitAtNewLine == null && gameData.IndexOfLastNewLineWaited < letterIndex)
                     {
-                        letter.Opacity = 1;
-                        scrollData.numLettersFullyShown = letterIndex;
+                        secondsToWaitAtNewLine = secondsToFadeIn / 6;
+                        gameData.IndexOfLastNewLineWaited = letterIndex;
                     }
+
+                    if (secondsToWaitAtNewLine != null && gameData.IndexOfLastNewLineWaited == letterIndex)
+                    {
+                        if (secondsToWaitAtNewLine <= 0)
+                        {
+                            secondsToWaitAtNewLine = null;
+                        }
+                        else
+                        {
+                            gameData.LetterToShow = letterIndex;
+                            secondsToWaitAtNewLine -= gameTime.ElapsedGameTime.TotalSeconds;
+                        }
+                    }
+                }
+
+                letter.Opacity += gameTime.ElapsedGameTime.TotalSeconds / secondsToFadeIn;
+                if (letter.Opacity > 1)
+                {
+                    letter.Opacity = 1;
+                    gameData.NumLettersFullyShown = letterIndex;
                 }
             }
 
             // RUN COMMANDS
-
-
             base.Update(gameTime);
         }
 
         protected override void Draw(GameTime gameTime)
         {
+            Resolution.BeginDraw();
+
             GraphicsDevice.Clear(Color.Black);
 
-            spriteBatch.Begin();
+            spriteBatch.Begin(transformMatrix: Resolution.getTransformationMatrix());
 
-            Letters.Draw(spriteBatch, scrollData, leftMargin: 50F, windowBounds: Window.ClientBounds);
+            // DRAW STORY TEXT
+            gameData.NumLines = Letters.Draw(
+                spriteBatch,
+                gameData.Fonts,
+                gameData.StorySoFar,
+                Color.White,
+                topOfText: gameData.TopOfText,
+                margin: 300F,
+                bounds: new Rectangle(0, 0, 1280, 720)
+            );
+
+            // DRAW CHOICES
+            float choiceButtonOpacity = ScrollText.ShowChoices(gameData)
+                ? 1F
+                : 0.25F;
+
+            Buttons.DrawChoiceButton(
+                spriteBatch,
+                gameData.Fonts,
+                ui.ChoiceButton,
+                ui.XboxX,
+                new Vector2(180, ScrollText.TopEdgeOfChoiceButtons + 20),
+                gameData.Choice1Text,
+                choiceButtonOpacity
+            );
+
+            Buttons.DrawChoiceButton(
+                spriteBatch,
+                gameData.Fonts,
+                ui.ChoiceButton,
+                ui.XboxB,
+                new Vector2(660, ScrollText.TopEdgeOfChoiceButtons + 20),
+                gameData.Choice2Text,
+                choiceButtonOpacity
+            );
 
             spriteBatch.End();
 

@@ -10,28 +10,34 @@ namespace TheHerosJourney.MonoGame.Functions
 {
     internal static class Letters
     {
-        internal static void Draw(SpriteBatch spriteBatch, ScrollData scrollData, float leftMargin, Rectangle windowBounds)
+        /// <returns>Number of lines drawn</returns>
+        internal static int Draw(SpriteBatch spriteBatch, Fonts fonts, List<Letter> letters, Color color, float topOfText, float margin, Rectangle bounds)
         {
-            static FontData getFont(ScrollData scrollData, Letter letter)
+            static FontData getFont(Fonts fonts, Letter letter)
             {
-                string fontKey = "";
+                if (letter.IsBold && letter.IsItalic)
+                {
+                    return fonts.BoldItalic;
+                }
+
                 if (letter.IsBold)
                 {
-                    fontKey += "Bold";
+                    return fonts.Bold;
                 }
+
                 if (letter.IsItalic)
                 {
-                    fontKey += "Italic";
+                    return fonts.Italic;
                 }
-                var storyFont = scrollData.storyFonts[fontKey];
-                return storyFont;
+
+                return fonts.Regular;
             }
 
-            static float measureWidth(ScrollData scrollData, IEnumerable<Letter> letters)
+            static float measureWidth(Fonts fonts, IEnumerable<Letter> letters)
             {
                 var width = letters.Sum(letter =>
                 {
-                    var storyFont = getFont(scrollData, letter);
+                    var storyFont = getFont(fonts, letter);
                     if (!storyFont.Glyphs.TryGetValue(letter.Character, out var glyph))
                     {
                         return 0;
@@ -44,27 +50,37 @@ namespace TheHerosJourney.MonoGame.Functions
                 return width;
             }
 
-            static Vector2 drawWord(SpriteBatch spriteBatch, ScrollData scrollData, IEnumerable<Letter> letters, Vector2 startPosition, Rectangle windowBounds)
+            static Vector2 drawWord(SpriteBatch spriteBatch, Fonts fonts, IEnumerable<Letter> letters, Color color, Vector2 startPosition, Rectangle bounds)
             {
                 var position = startPosition;
 
                 foreach (var letter in letters)
                 {
-                    var storyFont = getFont(scrollData, letter);
-                    var glyph = storyFont.Glyphs[letter.Character];
+                    if (letter.Character == '\n')
+                    {
+                        // ERROR: THIS SHOULDN'T HAPPEN
+                        continue;
+                    }
+
+                    var storyFont = getFont(fonts, letter);
+                    if (!storyFont.Glyphs.TryGetValue(letter.Character, out var glyph))
+                    {
+                        // ERROR: THIS SHOULDN'T HAPPEN EITHER
+                        continue;
+                    }
 
                     position += Vector2.UnitX * (storyFont.Font.Spacing + glyph.LeftSideBearing);
 
                     // IF IT'S ON THE SCREEN, ACTUALLY DRAW IT
                     {
                         var letterBoundsOnCanvas = new Rectangle(position.ToPoint(), glyph.BoundsInTexture.Size);
-                        if (windowBounds.Intersects(letterBoundsOnCanvas))
+                        if (bounds.Intersects(letterBoundsOnCanvas))
                         {
                             spriteBatch.Draw(
                                 storyFont.Font.Texture,
                                 position + new Vector2(glyph.Cropping.X, glyph.Cropping.Y),
                                 glyph.BoundsInTexture,
-                                Color.White * (float)letter.Opacity
+                                color * (float)letter.Opacity
                             );
                         }
                     }
@@ -81,45 +97,48 @@ namespace TheHerosJourney.MonoGame.Functions
                 return nextPosition;
             }
             
-            Vector2 position = new Vector2(leftMargin, scrollData.topOfText);
+            Vector2 position = new Vector2(margin, topOfText) + bounds.Location.ToVector2();
 
             var wordBuffer = new List<Letter>();
             int numLines = 0;
-            var windowBoundsWithMargin = windowBounds;
-            windowBoundsWithMargin.Inflate(100, 100);
+            var boundsWithMargin = bounds;
+            boundsWithMargin.Inflate(100, 100);
 
-            foreach (var letter in scrollData.storySoFar)
+            for (var letterIndex = 0; letterIndex < letters.Count; letterIndex += 1)
             {
+                var letter = letters[letterIndex];
+
                 // IF WORD IS DONE, WRITE IT AND CLEAR THE BUFFER.
-                if (letter.Character == ' ' || letter.Character == '\n')
+                if (letter.Character == ' ' || letter.Character == '\n' || letterIndex == letters.Count - 1)
                 {
-                    var wordWidth = measureWidth(scrollData, wordBuffer);
+                    var wordWidth = measureWidth(fonts, wordBuffer);
 
                     // IF THIS WORD WOULD OVERFLOW, SHIFT IT DOWN TO THE NEXT LINE.
                     {
-                        var maxWidth = windowBounds.Width - 100;
-                        if (position.X + wordWidth > leftMargin + maxWidth)
+                        var maxWidth = bounds.Width - (margin * 2);
+                        if (position.X + wordWidth > bounds.X + margin + maxWidth)
                         {
-                            var storyFont = getFont(scrollData, letter);
-                            position = goToNextLine(leftMargin, position, storyFont);
+                            var storyFont = getFont(fonts, letter);
+                            position = goToNextLine(bounds.X + margin, position, storyFont);
                             numLines += 1;
                         }
                     }
 
-                    if (letter.Character == ' ')
+                    if (letter.Character == ' '
+                        || (letterIndex == letters.Count - 1 && letter.Character != '\n'))
                     {
                         wordBuffer.Add(letter);
                     }
 
                     // SET NEW POSITION
-                    position = drawWord(spriteBatch, scrollData, wordBuffer, position, windowBoundsWithMargin);
+                    position = drawWord(spriteBatch, fonts, wordBuffer, color, position, boundsWithMargin);
                     wordBuffer.Clear();
 
                     // IF THE LINE ENDS AFTER THIS WORD, SHIFT DOWN.
                     if (letter.Character == '\n')
                     {
-                        var storyFont = getFont(scrollData, letter);
-                        position = goToNextLine(leftMargin, position, storyFont);
+                        var storyFont = getFont(fonts, letter);
+                        position = goToNextLine(margin, position, storyFont);
                         numLines += 1;
                     }
                 }
@@ -130,11 +149,16 @@ namespace TheHerosJourney.MonoGame.Functions
                 }
             }
 
-            scrollData.numLines = numLines;
+            return numLines;
         }
 
-        internal static IEnumerable<Letter> Get(string text)
+        internal static List<Letter> Get(string text)
         {
+            if (string.IsNullOrEmpty(text))
+            {
+                return new List<Letter>();
+            }
+
             const string startItalic = "<i>";
             const string endItalic = "</i>";
             const string startBold = "<b>";
