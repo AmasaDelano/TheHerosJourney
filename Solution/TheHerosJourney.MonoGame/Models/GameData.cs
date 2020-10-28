@@ -10,14 +10,18 @@ namespace TheHerosJourney.MonoGame.Models
 
         public int NumLines = 0;
 
+        public int LastLetterIndexAboveChoiceButtons = 0;
+
         public int NumLettersFullyShown;
 
         public double LetterToShow = 0;
 
         public int IndexOfLastNewLineWaited = 0;
 
-        public float TopOfText = ScrollText.TopEdge;
+        public float TopOfText = ScrollText.TopEdgeOfStory;
         
+        public float LastBreakpoint = ScrollText.TopEdgeOfStory;
+
         public Fonts Fonts = new Fonts();
 
         public double? TotalSecondsStartedScrolling = null;

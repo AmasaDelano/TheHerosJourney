@@ -6,7 +6,7 @@ namespace TheHerosJourney.MonoGame.Functions
 {
     internal static class Buttons
     {
-        public static void DrawChoiceButton(SpriteBatch spriteBatch, Fonts fonts, Texture2D buttonTexture, Texture2D promptTexture, Vector2 upperLeftCorner, string text, float opacity)
+        public static void DrawChoiceButton(SpriteBatch spriteBatch, GameData gameData, Texture2D buttonTexture, Texture2D promptTexture, Vector2 upperLeftCorner, string text, float opacity)
         {
             var choiceButtonTextColor = new Color(16, 16, 16);
             var textureColor = Color.White * opacity;
@@ -35,7 +35,7 @@ namespace TheHerosJourney.MonoGame.Functions
                 
                 Letters.Draw(
                     spriteBatch,
-                    fonts,
+                    gameData,
                     letters,
                     choiceButtonTextColor * opacity,
                     topOfText: 20,

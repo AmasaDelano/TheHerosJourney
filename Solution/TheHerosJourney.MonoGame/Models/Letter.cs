@@ -6,5 +6,6 @@
         internal bool IsBold;
         internal bool IsItalic;
         internal double Opacity = 1;
+        internal int LineNumber = 0;
     }
 }

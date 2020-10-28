@@ -1,6 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
-using System;
 using System.Collections.Generic;
 using TheHerosJourney.Functions;
 using TheHerosJourney.MonoGame.Models;
@@ -31,21 +30,46 @@ namespace TheHerosJourney.MonoGame.Functions
 
         public static void Handle(GameData gameData, GameTime gameTime)
         {
+            var showChoiceButtons = ScrollText.ShowChoices(gameData);
+            var storyHeight = gameData.NumLines * gameData.Fonts.Regular.Font.LineSpacing;
+
+            // HANDLE THE MAIN BUTTON
             if (WasJustPressed(Button.Continue))
             {
-                gameData.LetterToShow = gameData.StorySoFar.Count;
-                gameData.IndexOfLastNewLineWaited = (int) gameData.LetterToShow;
-            }
+                if (gameData.LetterToShow < gameData.LastLetterIndexAboveChoiceButtons)
+                {
+                    // REVEAL ALL LETTERS
+                    gameData.LetterToShow = gameData.LastLetterIndexAboveChoiceButtons;
+                }
+                else
+                {
+                    bool atTheBottom = gameData.TopOfText <= gameData.LastBreakpoint;
+                    bool doneRevealingThisScreen = gameData.LetterToShow >= gameData.LastLetterIndexAboveChoiceButtons;
+                    if (!atTheBottom)
+                    {
+                        // SCROLL DOWN TO THE LAST BREAKPOINT
+                        gameData.TopOfText = gameData.LastBreakpoint;
+                    }
+                    // SHOW THE NEXT CHUNK OF TEXT
+                    else if(!showChoiceButtons && doneRevealingThisScreen)
+                    {
+                        ScrollText.ToNextChunk(gameData);
 
+                        // TODO: MAKE THIS GO TO THE END OF THE NEXT CHUNK,
+                        // NOT STRAIGHT TO THE END OF THE WHOLE STORY.
+                        gameData.IndexOfLastNewLineWaited = (int)gameData.LetterToShow;
+                    }
+                }
+            }
+            
+            // HANDLE MAKING CHOICES
             {
                 var choose1Pressed = WasJustPressed(Button.Choose1);
                 var choose2Pressed = WasJustPressed(Button.Choose2);
-                var showChoiceButtons = ScrollText.ShowChoices(gameData);
 
                 if (showChoiceButtons && (choose1Pressed || choose2Pressed))
                 {
-                    var storyHeight = gameData.NumLines * gameData.Fonts.Regular.Font.LineSpacing;
-                    gameData.TopOfText = ScrollText.TopEdge - storyHeight;
+                    ScrollText.ToNextChunk(gameData);
 
                     if (choose1Pressed)
                     {
@@ -62,18 +86,10 @@ namespace TheHerosJourney.MonoGame.Functions
 
                     GoToNextChoice(gameData);
                 }
-                else if (!showChoiceButtons && (choose1Pressed || choose2Pressed))
-                {
-                    gameData.LetterToShow = gameData.StorySoFar.Count;
-                    gameData.IndexOfLastNewLineWaited = (int) gameData.LetterToShow;
-
-                    var storyHeight = gameData.NumLines * gameData.Fonts.Regular.Font.LineSpacing;
-                    gameData.TopOfText = Math.Min(ScrollText.TopEdge, ScrollText.TopEdgeOfChoiceButtons - storyHeight);
-                }
             }
 
-            // ONLY ALLOW SCROLLING IF WE'RE DONE REVEALING LETTERS
-            if (gameData.LetterToShow >= gameData.StorySoFar.Count)
+            // ONLY SCROLL IF WE'RE DONE REVEALING LETTERS.
+            if (gameData.LetterToShow >= gameData.LastLetterIndexAboveChoiceButtons)
             {
                 bool isDownPressed = IsDownNow(Button.Down);
                 bool isUpPressed = IsDownNow(Button.Up);

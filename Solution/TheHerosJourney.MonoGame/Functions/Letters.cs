@@ -11,7 +11,7 @@ namespace TheHerosJourney.MonoGame.Functions
     internal static class Letters
     {
         /// <returns>Number of lines drawn</returns>
-        internal static int Draw(SpriteBatch spriteBatch, Fonts fonts, List<Letter> letters, Color color, float topOfText, float margin, Rectangle bounds)
+        internal static int Draw(SpriteBatch spriteBatch, GameData gameData, List<Letter> letters, Color color, float topOfText, float margin, Rectangle bounds, bool isMainScrollText = false)
         {
             static FontData getFont(Fonts fonts, Letter letter)
             {
@@ -59,14 +59,22 @@ namespace TheHerosJourney.MonoGame.Functions
                     if (letter.Character == '\n')
                     {
                         // ERROR: THIS SHOULDN'T HAPPEN
+#if DEBUG
+                        throw new Exception();
+#else
                         continue;
+#endif
                     }
 
                     var storyFont = getFont(fonts, letter);
                     if (!storyFont.Glyphs.TryGetValue(letter.Character, out var glyph))
                     {
                         // ERROR: THIS SHOULDN'T HAPPEN EITHER
+#if DEBUG
+                        throw new Exception();
+#else
                         continue;
+#endif
                     }
 
                     position += Vector2.UnitX * (storyFont.Font.Spacing + glyph.LeftSideBearing);
@@ -111,14 +119,15 @@ namespace TheHerosJourney.MonoGame.Functions
                 // IF WORD IS DONE, WRITE IT AND CLEAR THE BUFFER.
                 if (letter.Character == ' ' || letter.Character == '\n' || letterIndex == letters.Count - 1)
                 {
-                    var wordWidth = measureWidth(fonts, wordBuffer);
+                    var wordWidth = measureWidth(gameData.Fonts, wordBuffer);
 
-                    // IF THIS WORD WOULD OVERFLOW, SHIFT IT DOWN TO THE NEXT LINE.
+                    // IF THIS WORD WOULD OVERFLOW,
+                    // SHIFT IT DOWN TO THE NEXT LINE.
                     {
                         var maxWidth = bounds.Width - (margin * 2);
                         if (position.X + wordWidth > bounds.X + margin + maxWidth)
                         {
-                            var storyFont = getFont(fonts, letter);
+                            var storyFont = getFont(gameData.Fonts, letter);
                             position = goToNextLine(bounds.X + margin, position, storyFont);
                             numLines += 1;
                         }
@@ -131,15 +140,26 @@ namespace TheHerosJourney.MonoGame.Functions
                     }
 
                     // SET NEW POSITION
-                    position = drawWord(spriteBatch, fonts, wordBuffer, color, position, boundsWithMargin);
+                    position = drawWord(spriteBatch, gameData.Fonts, wordBuffer, color, position, boundsWithMargin);
+                    wordBuffer.ForEach(l => l.LineNumber = numLines);
                     wordBuffer.Clear();
 
                     // IF THE LINE ENDS AFTER THIS WORD, SHIFT DOWN.
                     if (letter.Character == '\n')
                     {
-                        var storyFont = getFont(fonts, letter);
+                        var storyFont = getFont(gameData.Fonts, letter);
                         position = goToNextLine(margin, position, storyFont);
                         numLines += 1;
+                        letter.LineNumber = numLines; // This makes sure stray newlines have this set.
+
+                        if (
+                                isMainScrollText
+                                && gameData.TopOfText == gameData.LastBreakpoint
+                                && position.Y < ScrollText.TopEdgeOfChoiceButtons
+                            )
+                        {
+                            gameData.LastLetterIndexAboveChoiceButtons = letterIndex;
+                        }
                     }
                 }
                 else

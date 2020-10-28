@@ -110,12 +110,12 @@ namespace TheHerosJourney.MonoGame
             // HANDLE INPUT
             Input.Handle(gameData, gameTime);
 
-            const int lettersPerSecond = (int) LettersPerSecond.Slow;
+            const int lettersPerSecond = (int) LettersPerSecond.Fast;
             const float secondsToFadeIn = 45F / lettersPerSecond;
 
             // FADE IN CHARACTERS
             gameData.LetterToShow += lettersPerSecond * gameTime.ElapsedGameTime.TotalSeconds;
-            gameData.LetterToShow = Math.Min(gameData.LetterToShow, gameData.StorySoFar.Count);
+            gameData.LetterToShow = Math.Min(gameData.LetterToShow, gameData.LastLetterIndexAboveChoiceButtons);
 
             for (int letterIndex = gameData.NumLettersFullyShown; letterIndex < gameData.LetterToShow; letterIndex += 1)
             {
@@ -124,18 +124,22 @@ namespace TheHerosJourney.MonoGame
                 // DELAY FOR A BIT IF THIS IS A NEW PARAGRAPH.
                 if (letter.Character == '\n')
                 {
+                    // WE JUST GOT STARTED PAUSING
                     if (secondsToWaitAtNewLine == null && gameData.IndexOfLastNewLineWaited < letterIndex)
                     {
                         secondsToWaitAtNewLine = secondsToFadeIn / 6;
                         gameData.IndexOfLastNewLineWaited = letterIndex;
                     }
 
+                    // WE'VE ALREADY BEEN PAUSING, ...
                     if (secondsToWaitAtNewLine != null && gameData.IndexOfLastNewLineWaited == letterIndex)
                     {
+                        // ...BUT WE'RE DONE PAUSING NOW.
                         if (secondsToWaitAtNewLine <= 0)
                         {
                             secondsToWaitAtNewLine = null;
                         }
+                        // ...SO KEEP PAUSING AND ADVANCE THE TIMER.
                         else
                         {
                             gameData.LetterToShow = letterIndex;
@@ -163,42 +167,56 @@ namespace TheHerosJourney.MonoGame
             GraphicsDevice.Clear(Color.Black);
 
             spriteBatch.Begin(transformMatrix: Resolution.getTransformationMatrix());
+            var screenBounds = new Rectangle(0, 0, 1280, 720);
 
             // DRAW STORY TEXT
             gameData.NumLines = Letters.Draw(
                 spriteBatch,
-                gameData.Fonts,
+                gameData,
                 gameData.StorySoFar,
                 Color.White,
                 topOfText: gameData.TopOfText,
-                margin: 300F,
-                bounds: new Rectangle(0, 0, 1280, 720)
+                margin: 220F,
+                bounds: screenBounds,
+                isMainScrollText: true
             );
 
             // DRAW CHOICES
-            float choiceButtonOpacity = ScrollText.ShowChoices(gameData)
-                ? 1F
-                : 0.25F;
+            if (ScrollText.ShowChoices(gameData))
+            {
+                Buttons.DrawChoiceButton(
+                    spriteBatch,
+                    gameData,
+                    ui.ChoiceButton,
+                    ui.XboxX,
+                    new Vector2(180, ScrollText.TopEdgeOfChoiceButtons + 20),
+                    gameData.Choice1Text,
+                    1
+                );
 
-            Buttons.DrawChoiceButton(
-                spriteBatch,
-                gameData.Fonts,
-                ui.ChoiceButton,
-                ui.XboxX,
-                new Vector2(180, ScrollText.TopEdgeOfChoiceButtons + 20),
-                gameData.Choice1Text,
-                choiceButtonOpacity
-            );
-
-            Buttons.DrawChoiceButton(
-                spriteBatch,
-                gameData.Fonts,
-                ui.ChoiceButton,
-                ui.XboxB,
-                new Vector2(660, ScrollText.TopEdgeOfChoiceButtons + 20),
-                gameData.Choice2Text,
-                choiceButtonOpacity
-            );
+                Buttons.DrawChoiceButton(
+                    spriteBatch,
+                    gameData,
+                    ui.ChoiceButton,
+                    ui.XboxB,
+                    new Vector2(660, ScrollText.TopEdgeOfChoiceButtons + 20),
+                    gameData.Choice2Text,
+                    1
+                );
+            }
+            else
+            {
+                spriteBatch.Draw(
+                    ui.XboxA,
+                    new Rectangle(
+                        screenBounds.Width / 2 - (int) (ui.XboxA.Width * 1F / 3),
+                        ScrollText.TopEdgeOfChoiceButtons + (screenBounds.Height - ScrollText.TopEdgeOfChoiceButtons) / 2 - (int) (ui.XboxA.Width * 1F / 3),
+                        (int) (ui.XboxA.Width * 2F / 3),
+                        (int) (ui.XboxA.Height * 2F / 3)
+                    ),
+                    Color.White
+                );
+            }
 
             spriteBatch.End();
 
