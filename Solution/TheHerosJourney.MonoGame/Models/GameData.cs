@@ -10,7 +10,7 @@ namespace TheHerosJourney.MonoGame.Models
 
         public int NumLines = 0;
 
-        public int LastLetterIndexAboveChoiceButtons = 0;
+        public int LastLineBreakAboveChoiceButtons = 0;
 
         public int NumLettersFullyShown;
 
@@ -37,6 +37,8 @@ namespace TheHerosJourney.MonoGame.Models
         public Story Story;
 
         public Scene CurrentScene;
+
+        public UiData UiData = new UiData();
     }
 
     internal class Fonts

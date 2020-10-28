@@ -58,33 +58,31 @@ namespace TheHerosJourney.Functions
             return null;
         }
 
-        public static string Message(FileData fileData, Story story, string message, out List<Tuple<int, Action<FileData, Story>>> commandsByIndex)
+        public static string Message(FileData fileData, Story story, string message, out List<Tuple<int, Action<UiData>>> uiCommandsByIndex)
         {
-            /*static */string subMessage(string subMessageText, Story pStory, FileData pFileData, int pBaseCommandIndex, ref List<Tuple<int, Action<FileData, Story>>> pCommandsByIndex)
+            /*static */string subMessage(string subMessageText, Story pStory, FileData pFileData, int pBaseUiCommandIndex, ref List<Tuple<int, Action<UiData>>> pUiCommandsByIndex)
             {
                 var replacedSubMessage = subMessageText.Replace("[", "{").Replace("]", "}").Replace("-", ":");
 
-                string processedSubMessage = Process.Message(pFileData, pStory, replacedSubMessage, out var ppCommandsByIndex);
-                foreach (var tuple in ppCommandsByIndex)
-                {
-                    pCommandsByIndex.Add(Tuple.Create(pBaseCommandIndex, tuple.Item2));
-                }
+                string processedSubMessage = Process.Message(pFileData, pStory, replacedSubMessage, out var ppUiCommandsByIndex);
+                
+                pUiCommandsByIndex.AddRange(ppUiCommandsByIndex);
 
                 return processedSubMessage;
             }
 
-            /*static */void addCommand(
-                           int commandIndex,
-                           Action<FileData, Story> command,
-                           ref List<Tuple<int, Action<FileData, Story>>> pCommandsByIndex)
+            /*static */void addUiCommand(
+                           int uiCommandIndex,
+                           Action<UiData> uiCommand,
+                           ref List<Tuple<int, Action<UiData>>> pUiCommandsByIndex)
             {
-                pCommandsByIndex.Add(Tuple.Create(commandIndex, command));
+                pUiCommandsByIndex.Add(Tuple.Create(uiCommandIndex, uiCommand));
             }
 
             var replacements = Regex.Matches(message, "\\{.+?\\}");
 
             string replacedMessage = message;
-            commandsByIndex = new List<Tuple<int, Action<FileData, Story>>>();
+            uiCommandsByIndex = new List<Tuple<int, Action<UiData>>>();
 
             foreach (Match replacement in replacements)
             {
@@ -94,7 +92,7 @@ namespace TheHerosJourney.Functions
                 var primaryKey = keyPieces[0];
 
                 string replacementValue = "";
-                int baseCommandIndex = replacedMessage.IndexOf(replacement.Value);
+                int baseUiCommandIndex = replacedMessage.IndexOf(replacement.Value);
 
                 if (key.StartsWith("|") && key.EndsWith("|"))
                 {
@@ -104,77 +102,87 @@ namespace TheHerosJourney.Functions
 
                     if (commandOptions.Length == 1)
                     {
-                        addCommand(baseCommandIndex, (fd, s) =>
-                        {
-                            s.NextSceneIdentifier = commandOptions[0];
-                        }, ref commandsByIndex);
+                        story.NextSceneIdentifier = commandOptions[0];
                     }
                     else
                     {
                         if (commandOptions[0] == "GIVE" && commandOptions.Length == 4)
                         {
-                            addCommand(baseCommandIndex, (fd, s) =>
+                            var subCommands = new List<Tuple<int, Action<UiData>>>();
+
+                            var item = new Item
                             {
-                                var subCommands = new List<Tuple<int, Action<FileData, Story>>>();
-                                
-                                var item = new Item
-                                {
-                                    Identifier = subMessage(commandOptions[1], s, fd, baseCommandIndex, ref subCommands),
-                                    Name = subMessage(commandOptions[2], s, fd, baseCommandIndex, ref subCommands),
-                                    Description = subMessage(commandOptions[3], s, fd, baseCommandIndex, ref subCommands)
-                                };
+                                Identifier = subMessage(commandOptions[1], story, fileData, baseUiCommandIndex, ref subCommands),
+                                Name = subMessage(commandOptions[2], story, fileData, baseUiCommandIndex, ref subCommands),
+                                Description = subMessage(commandOptions[3], story, fileData, baseUiCommandIndex, ref subCommands)
+                            };
 
-                                item.Description = subMessage(item.Description, s, fd, baseCommandIndex, ref subCommands);
+                            item.Description = subMessage(item.Description, story, fileData, baseUiCommandIndex, ref subCommands);
 
-                                subCommands.ForEach(sc => sc.Item2.Invoke(fd, s));
+                            foreach (var subCommand in subCommands)
+                            {
+                                addUiCommand(baseUiCommandIndex, subCommand.Item2, ref uiCommandsByIndex);
+                            }
 
-                                s.You.Inventory.Add(item);
-                            }, ref commandsByIndex);
+                            story.You.Inventory.Add(item);
+
+                            addUiCommand(baseUiCommandIndex, (uiD) =>
+                            {
+                                uiD.Inventory[item.Identifier] = Tuple.Create(item.Name, item.Description);
+                            }, ref uiCommandsByIndex);
                         }
                         else if (commandOptions[0] == "REMOVE" && commandOptions.Length == 2)
                         {
-                            addCommand(baseCommandIndex, (fd, s) =>
-                            {
-                                var item = s.You.Inventory.FirstOrDefault(i => i.Identifier == commandOptions[1]);
+                            var item = story.You.Inventory.FirstOrDefault(i => i.Identifier == commandOptions[1]);
 
-                                if (item != null)
+                            if (item != null)
+                            {
+                                story.You.Inventory.Remove(item);
+
+                                addUiCommand(baseUiCommandIndex, (uiD) =>
                                 {
-                                    s.You.Inventory.Remove(item);
-                                }
-                            }, ref commandsByIndex);
+                                    uiD.Inventory.Remove(item.Identifier);
+                                }, ref uiCommandsByIndex);
+                            }
+
                         }
                         else if (commandOptions[0] == "RENAME" && commandOptions.Length == 4)
                         {
-                            addCommand(baseCommandIndex, (fd, s) =>
-                            {
-                                var item = s.You.Inventory.FirstOrDefault(i => i.Identifier == commandOptions[1]);
+                            var item = story.You.Inventory.FirstOrDefault(i => i.Identifier == commandOptions[1]);
 
-                                if (item != null)
-                                {
-                                    item.Name = commandOptions[2];
-                                    item.Description = commandOptions[3];
-                                }
-                            }, ref commandsByIndex);
+                            if (item != null)
+                            {
+                                item.Name = commandOptions[2];
+                                item.Description = commandOptions[3];
+                            }
+
+                            addUiCommand(baseUiCommandIndex, (uiD) =>
+                            {
+                                uiD.Inventory[item.Identifier] = Tuple.Create(item.Name, item.Description);
+                            }, ref uiCommandsByIndex);
                         }
                         else if (commandOptions[0] == "GOTO" && commandOptions.Length >= 2)
                         {
-                            addCommand(baseCommandIndex, (fd, s) =>
-                            {
-                                bool namedLocationExists = s.NamedLocations.TryGetValue(commandOptions[1], out Location newLocation);
+                            bool namedLocationExists = story.NamedLocations.TryGetValue(commandOptions[1], out Location newLocation);
 
-                                if (namedLocationExists)
-                                {
-                                    s.You.CurrentLocation = newLocation;
-                                }
-                                else if (commandOptions[1] == "hometown")
-                                {
-                                    s.You.CurrentLocation = s.You.Hometown;
-                                }
-                                else if (commandOptions[1] == "goal")
-                                {
-                                    s.You.CurrentLocation = s.You.Goal;
-                                }
-                            }, ref commandsByIndex);
+                            if (namedLocationExists)
+                            {
+                                story.You.CurrentLocation = newLocation;
+                            }
+                            else if (commandOptions[1] == "hometown")
+                            {
+                                story.You.CurrentLocation = story.You.Hometown;
+                            }
+                            else if (commandOptions[1] == "goal")
+                            {
+                                story.You.CurrentLocation = story.You.Goal;
+                            }
+
+                            addUiCommand(baseUiCommandIndex, (uiD) =>
+                            {
+                                uiD.CurrentLocationType = story.You.CurrentLocation.Type;
+                                uiD.CurrentLocationName = story.You.CurrentLocation.NameWithThe.CapitalizeFirstLetter();
+                            }, ref uiCommandsByIndex);
                         }
                         else if (commandOptions[0] == "SET" && commandOptions.Length == 3)
                         {
@@ -185,20 +193,17 @@ namespace TheHerosJourney.Functions
                             {
                                 if (flagValue == "hometown")
                                 {
-                                    addCommand(baseCommandIndex, (fd, s) => s.You.Goal = s.You.Hometown, ref commandsByIndex);
+                                    story.You.Goal = story.You.Hometown;
                                 }
                                 else
                                 {
-                                    addCommand(replacedMessage.IndexOf(replacement.Value), (fd, s) =>
-                                    {
-                                        s.NamedLocations.TryGetValue(flagValue, out Location goalLocation);
-                                        s.You.Goal = goalLocation;
-                                    }, ref commandsByIndex);
+                                    story.NamedLocations.TryGetValue(flagValue, out Location goalLocation);
+                                    story.You.Goal = goalLocation;
                                 }
                             }
                             else
                             {
-                                addCommand(baseCommandIndex, (fd, s) => s.Flags[flagKey] = flagValue, ref commandsByIndex);
+                                story.Flags[flagKey] = flagValue;
                             }
                         }
                         else if (commandOptions[0] == "MORALE" && commandOptions.Length == 2)
@@ -207,7 +212,8 @@ namespace TheHerosJourney.Functions
 
                             if (success)
                             {
-                                addCommand(baseCommandIndex, (fd, s) => s.Morale += moraleChange, ref commandsByIndex);
+                                story.Morale += moraleChange;
+                                addUiCommand(baseUiCommandIndex, (uiD) => uiD.Morale += moraleChange, ref uiCommandsByIndex);
                             }
                         }
                     }
@@ -240,14 +246,14 @@ namespace TheHerosJourney.Functions
 
                     if (conditionIsTrue)
                     {
-                        replacementValue = subMessage(keyPieces.Last(), story, fileData, baseCommandIndex, ref commandsByIndex);
+                        replacementValue = subMessage(keyPieces.Last(), story, fileData, baseUiCommandIndex, ref uiCommandsByIndex);
                     }
                 }
                 else if (primaryKey == "almanac" && keyPieces.Length >= 3)
                 {
                     // STORE THE LOCATION IN THE ALMANAC.
-                    string almanacTitle = subMessage(keyPieces[1], story, fileData, baseCommandIndex, ref commandsByIndex).CapitalizeFirstLetter();
-                    string almanacDescription = subMessage(keyPieces[2], story, fileData, baseCommandIndex, ref commandsByIndex);
+                    string almanacTitle = subMessage(keyPieces[1], story, fileData, baseUiCommandIndex, ref uiCommandsByIndex).CapitalizeFirstLetter();
+                    string almanacDescription = subMessage(keyPieces[2], story, fileData, baseUiCommandIndex, ref uiCommandsByIndex);
 
                     if (story.Almanac.TryGetValue(almanacTitle, out string existingDescription)
                         && !(keyPieces.Length == 4 && keyPieces[3] == "reset"))
@@ -262,10 +268,12 @@ namespace TheHerosJourney.Functions
                         }
                     }
 
-                    addCommand(replacedMessage.IndexOf(replacement.Value), (fd, s) =>
+                    story.Almanac[almanacTitle] = almanacDescription;
+
+                    addUiCommand(baseUiCommandIndex, (uiD) =>
                     {
-                        s.Almanac[almanacTitle] = almanacDescription;
-                    }, ref commandsByIndex);
+                        uiD.Journal[almanacTitle] = almanacDescription;
+                    }, ref uiCommandsByIndex);
                 }
                 else if (primaryKey == "location")
                 {

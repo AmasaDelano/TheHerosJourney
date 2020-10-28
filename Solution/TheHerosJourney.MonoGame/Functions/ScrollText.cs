@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using System;
 using TheHerosJourney.Functions;
 using TheHerosJourney.MonoGame.Models;
 
@@ -81,9 +82,12 @@ namespace TheHerosJourney.MonoGame.Functions
         public static void AddTextToScroll(GameData gameData, string newText)
         {
             var replacedText = Process.Message(gameData.FileData, gameData.Story, newText, out var commandsByIndex);
-            commandsByIndex.ForEach(command => command.Item2.Invoke(gameData.FileData, gameData.Story));
+            commandsByIndex.ForEach(command => command.Item2.Invoke(gameData.UiData));
 
-            replacedText += "\n\n";
+            if (gameData.StorySoFar.Count > 0)
+            {
+                replacedText = "\n\n" + replacedText;
+            }
 
             var letters = Letters.Get(replacedText);
 
@@ -92,7 +96,17 @@ namespace TheHerosJourney.MonoGame.Functions
 
         internal static void ToNextChunk(GameData gameData)
         {
-            var lineNumber = gameData.StorySoFar[gameData.LastLetterIndexAboveChoiceButtons].LineNumber;
+            // FIND THE LINE NUMBER THAT SHOULD BE AT THE TOP
+            var letterIndexAtTheTop = (int) Math.Floor(gameData.LetterToShow);
+            var lineNumber = gameData.StorySoFar[letterIndexAtTheTop].LineNumber + 2;
+            
+            // SKIP REVEALING THE NEXT TWO LINE BREAKS, AND START WITH THE FIRST LETTER ON THE NEW LINE.
+            gameData.LetterToShow = Math.Max(gameData.LetterToShow, letterIndexAtTheTop + 3);
+            // MAKE SURE LetterToShow ISN'T MIN-ED IN THE UPDATE,
+            // BEFORE LastLineBreakAboveChoiceButtons CAN BE RECALCULATED IN THE DRAW.
+            gameData.LastLineBreakAboveChoiceButtons = (int) gameData.LetterToShow + 10;
+
+            // SET THE NEW TOP OF TEXT
             var heightOfStoryAboveTop = lineNumber * gameData.Fonts.Regular.Font.LineSpacing;
             gameData.TopOfText = TopEdgeOfStory - heightOfStoryAboveTop;
 

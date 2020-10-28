@@ -110,14 +110,14 @@ namespace TheHerosJourney.MonoGame
             // HANDLE INPUT
             Input.Handle(gameData, gameTime);
 
-            const int lettersPerSecond = (int) LettersPerSecond.Fast;
+            const int lettersPerSecond = (int) LettersPerSecond.Slow;
             const float secondsToFadeIn = 45F / lettersPerSecond;
 
             // FADE IN CHARACTERS
             gameData.LetterToShow += lettersPerSecond * gameTime.ElapsedGameTime.TotalSeconds;
-            gameData.LetterToShow = Math.Min(gameData.LetterToShow, gameData.LastLetterIndexAboveChoiceButtons);
+            gameData.LetterToShow = Math.Min(gameData.LetterToShow, gameData.LastLineBreakAboveChoiceButtons);
 
-            for (int letterIndex = gameData.NumLettersFullyShown; letterIndex < gameData.LetterToShow; letterIndex += 1)
+            for (int letterIndex = gameData.NumLettersFullyShown; letterIndex <= gameData.LetterToShow; letterIndex += 1)
             {
                 var letter = gameData.StorySoFar[letterIndex];
 

@@ -151,21 +151,23 @@ namespace TheHerosJourney.MonoGame.Functions
                         position = goToNextLine(margin, position, storyFont);
                         numLines += 1;
                         letter.LineNumber = numLines; // This makes sure stray newlines have this set.
-
-                        if (
-                                isMainScrollText
-                                && gameData.TopOfText == gameData.LastBreakpoint
-                                && position.Y < ScrollText.TopEdgeOfChoiceButtons
-                            )
-                        {
-                            gameData.LastLetterIndexAboveChoiceButtons = letterIndex;
-                        }
                     }
                 }
                 else
                 {
                     // ADD LETTER TO WORD BUFFER
                     wordBuffer.Add(letter);
+                }
+
+                if (
+                    isMainScrollText
+                    && letter.Character != '\n'
+                    && (letterIndex == letters.Count - 1 || letters[letterIndex + 1].Character == '\n')
+                    && gameData.TopOfText == gameData.LastBreakpoint
+                    && position.Y < ScrollText.TopEdgeOfChoiceButtons
+                )
+                {
+                    gameData.LastLineBreakAboveChoiceButtons = letterIndex;
                 }
             }
 

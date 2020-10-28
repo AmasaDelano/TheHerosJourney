@@ -19,11 +19,11 @@ namespace TheHerosJourney.MonoGame.Functions
 
                 choicesExist = Run.PresentChoices(gameData.CurrentScene, (c1, c2) =>
                 {
-                    gameData.Choice1Text = Process.Message(gameData.FileData, gameData.Story, c1, out var commandsByIndex1);
-                    commandsByIndex1.ForEach(command => command.Item2.Invoke(gameData.FileData, gameData.Story));
+                    gameData.Choice1Text = Process.Message(gameData.FileData, gameData.Story, c1, out var uiCommandsByIndex1);
+                    uiCommandsByIndex1.ForEach(command => command.Item2.Invoke(gameData.UiData));
 
-                    gameData.Choice2Text = Process.Message(gameData.FileData, gameData.Story, c2, out var commandsByIndex2);
-                    commandsByIndex2.ForEach(command => command.Item2.Invoke(gameData.FileData, gameData.Story));
+                    gameData.Choice2Text = Process.Message(gameData.FileData, gameData.Story, c2, out var uiCommandsByIndex2);
+                    uiCommandsByIndex2.ForEach(command => command.Item2.Invoke(gameData.UiData));
                 });
             }
         }
@@ -36,15 +36,16 @@ namespace TheHerosJourney.MonoGame.Functions
             // HANDLE THE MAIN BUTTON
             if (WasJustPressed(Button.Continue))
             {
-                if (gameData.LetterToShow < gameData.LastLetterIndexAboveChoiceButtons)
+                if (gameData.LetterToShow < gameData.LastLineBreakAboveChoiceButtons)
                 {
                     // REVEAL ALL LETTERS
-                    gameData.LetterToShow = gameData.LastLetterIndexAboveChoiceButtons;
+                    gameData.LetterToShow = gameData.LastLineBreakAboveChoiceButtons;
+                    gameData.IndexOfLastNewLineWaited = (int) gameData.LetterToShow; // Treat this line with suspicion until it's proved itself.
                 }
                 else
                 {
                     bool atTheBottom = gameData.TopOfText <= gameData.LastBreakpoint;
-                    bool doneRevealingThisScreen = gameData.LetterToShow >= gameData.LastLetterIndexAboveChoiceButtons;
+                    bool doneRevealingThisScreen = gameData.LetterToShow >= gameData.LastLineBreakAboveChoiceButtons;
                     if (!atTheBottom)
                     {
                         // SCROLL DOWN TO THE LAST BREAKPOINT
@@ -80,16 +81,19 @@ namespace TheHerosJourney.MonoGame.Functions
                         Run.Choose2(gameData.CurrentScene, text => ScrollText.AddTextToScroll(gameData, text));
                     }
 
-                    // +3 TO SKIP PAST THE 2 NEW LINES AFTER THE RECAP
-                    gameData.LetterToShow = gameData.StorySoFar.FindLastIndex(letter => letter.IsItalic) + 2;
+                    // +3 TO SKIP PAST THE 2 NEW LINES AFTER THE RECAP TO THE FIRST CHARACTER
+                    gameData.LetterToShow = gameData.StorySoFar.FindLastIndex(letter => letter.IsItalic) + 3;
                     gameData.IndexOfLastNewLineWaited = (int) gameData.LetterToShow;
+                    // MAKE SURE LetterToShow ISN'T MIN-ED IN THE UPDATE,
+                    // BEFORE LastLineBreakAboveChoiceButtons CAN BE RECALCULATED IN THE DRAW.
+                    gameData.LastLineBreakAboveChoiceButtons = (int)gameData.LetterToShow + 10;
 
                     GoToNextChoice(gameData);
                 }
             }
 
             // ONLY SCROLL IF WE'RE DONE REVEALING LETTERS.
-            if (gameData.LetterToShow >= gameData.LastLetterIndexAboveChoiceButtons)
+            if (gameData.LetterToShow >= gameData.LastLineBreakAboveChoiceButtons)
             {
                 bool isDownPressed = IsDownNow(Button.Down);
                 bool isUpPressed = IsDownNow(Button.Up);
