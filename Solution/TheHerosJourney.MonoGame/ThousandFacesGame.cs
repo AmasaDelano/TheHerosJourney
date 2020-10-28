@@ -72,15 +72,21 @@ namespace TheHerosJourney.MonoGame
             gameData.Fonts.Bold = loadFont("Bold");
             gameData.Fonts.Italic = loadFont("Italic");
             gameData.Fonts.BoldItalic = loadFont("BoldItalic");
+            gameData.Fonts.Big = loadFont("Bold-36");
 
             // LOAD UI ELEMENTS
-            ui.ChoiceButton = this.Content.Load<Texture2D>("UI/Button");
+            // - BUTTON PROMPTS
             ui.XboxA = this.Content.Load<Texture2D>("UI/ButtonPrompts/XboxOne/XboxOne_A");
             ui.XboxB = this.Content.Load<Texture2D>("UI/ButtonPrompts/XboxOne/XboxOne_B");
             ui.XboxX = this.Content.Load<Texture2D>("UI/ButtonPrompts/XboxOne/XboxOne_X");
             ui.XboxY = this.Content.Load<Texture2D>("UI/ButtonPrompts/XboxOne/XboxOne_Y");
             ui.XboxMenu = this.Content.Load<Texture2D>("UI/ButtonPrompts/XboxOne/XboxOne_Menu");
             ui.XboxView = this.Content.Load<Texture2D>("UI/ButtonPrompts/XboxOne/XboxOne_View");
+            // - BACKGROUNDS
+            ui.Parchment = this.Content.Load<Texture2D>("UI/Backgrounds/Parchment3");
+            ui.ChoiceButton = this.Content.Load<Texture2D>("UI/Backgrounds/ChoiceButton");
+            // - LOCATIONS
+            ui.Backgrounds["Forest"] = this.Content.Load<Texture2D>("UI/Locations/Forest");
 
             // LOAD SCENE, CHARACTER, AND LOCATION DATA
             static Stream GetDataResourceStream(string resourceName)
@@ -169,19 +175,58 @@ namespace TheHerosJourney.MonoGame
             spriteBatch.Begin(transformMatrix: Resolution.getTransformationMatrix());
             var screenBounds = new Rectangle(0, 0, 1280, 720);
 
-            // DRAW STORY TEXT
+            // BACKGROUND
+            spriteBatch.Draw(ui.Backgrounds["Forest"], screenBounds, Color.White);
+
+            // STORY WITH PARCHMENT
+            const float sideMargins = 300F;
+
+            var storyBounds = screenBounds;
+            storyBounds.Inflate(-sideMargins, 0);
+            spriteBatch.Draw(ui.Parchment, storyBounds, Color.White);
+
+            var textColor = new Color(16, 16, 16);
             gameData.NumLines = Letters.Draw(
                 spriteBatch,
                 gameData,
                 gameData.StorySoFar,
-                Color.White,
+                textColor,
                 topOfText: gameData.TopOfText,
-                margin: 220F,
+                margin: sideMargins + ScrollText.TopEdgeOfStory,
                 bounds: screenBounds,
                 isMainScrollText: true
             );
 
-            // DRAW CHOICES
+            // MORALE
+            {
+                const string labelText = "Morale: ";
+                string numberText = $" {gameData.Story.Morale}";
+                var labelSize = gameData.Fonts.Italic.Font.MeasureString(labelText);
+                var numberSize = gameData.Fonts.Italic.Font.MeasureString(numberText);
+                var originPoint = new Vector2(screenBounds.Width - sideMargins + ScrollText.TopEdgeOfStory * 2, ScrollText.TopEdgeOfStory);
+                spriteBatch.DrawString(
+                    gameData.Fonts.Italic.Font,
+                    labelText,
+                    originPoint,
+                    Color.White
+                );
+                spriteBatch.DrawString(
+                    gameData.Fonts.Big.Font,
+                    numberText,
+                    originPoint + new Vector2(labelSize.X, -numberSize.Y / 2),
+                    Color.White
+                );
+            }
+
+            // PROGRESS
+            spriteBatch.DrawString(
+                gameData.Fonts.Bold.Font,
+                ((int)gameData.Story.CurrentStage).ToString(),
+                new Vector2(screenBounds.Width - sideMargins / 2, 200),
+                Color.White
+            );
+
+            // CHOICES
             if (ScrollText.ShowChoices(gameData))
             {
                 Buttons.DrawChoiceButton(
@@ -189,7 +234,7 @@ namespace TheHerosJourney.MonoGame
                     gameData,
                     ui.ChoiceButton,
                     ui.XboxX,
-                    new Vector2(180, ScrollText.TopEdgeOfChoiceButtons + 20),
+                    new Vector2(180, ScrollText.TopEdgeOfChoiceButtons + 40),
                     gameData.Choice1Text,
                     1
                 );
@@ -199,7 +244,7 @@ namespace TheHerosJourney.MonoGame
                     gameData,
                     ui.ChoiceButton,
                     ui.XboxB,
-                    new Vector2(660, ScrollText.TopEdgeOfChoiceButtons + 20),
+                    new Vector2(660, ScrollText.TopEdgeOfChoiceButtons + 40),
                     gameData.Choice2Text,
                     1
                 );

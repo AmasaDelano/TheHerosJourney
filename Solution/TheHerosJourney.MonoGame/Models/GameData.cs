@@ -47,5 +47,6 @@ namespace TheHerosJourney.MonoGame.Models
         public FontData Bold;
         public FontData Italic;
         public FontData BoldItalic;
+        public FontData Big;
     }
 }

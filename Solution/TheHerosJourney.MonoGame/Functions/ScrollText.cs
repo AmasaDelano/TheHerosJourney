@@ -8,7 +8,7 @@ namespace TheHerosJourney.MonoGame.Functions
     internal static class ScrollText
     {
         internal const int TopEdgeOfStory = 34;
-        internal const int TopEdgeOfChoiceButtons = 520;
+        internal const int TopEdgeOfChoiceButtons = 500;
 
         private const double SecondsToMediumSpeed = 0.8;
         private const double SecondsToTransition = 0.5;

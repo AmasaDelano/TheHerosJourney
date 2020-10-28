@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 
 namespace TheHerosJourney.MonoGame.Models
 {
@@ -19,5 +20,9 @@ namespace TheHerosJourney.MonoGame.Models
         public Texture2D XboxRB;
         public Texture2D XboxLT;
         public Texture2D XboxRT;
+        
+        // GAME UI
+        public Texture2D Parchment;
+        public readonly Dictionary<string, Texture2D> Backgrounds = new Dictionary<string, Texture2D>();
     }
 }

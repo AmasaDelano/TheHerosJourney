@@ -186,11 +186,10 @@ namespace TheHerosJourney.Functions
             }
             story.You = you;
 
-            // PICK THE ADVENTURE FOR THIS STORY.
+            // PICK THE FIRST ADVENTURE FOR THIS STORY.
             var nextAdventure = fileData.Adventures.Where(adventure => !adventure.Done).Random();
 
             story.Adventure = nextAdventure;
-            story.Morale = 10;
 
             return story;
         }
