@@ -10,7 +10,7 @@ namespace TheHerosJourney.Models
         // The hero gets information that prompts them
         // to leave their home and the "normal."
         // Code: CTA
-        CallToAdventure,
+        CallToAdventure = 1,
 
         // (OPTIONAL)
         // The hero refuses to take action,

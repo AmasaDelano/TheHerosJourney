@@ -85,6 +85,9 @@ namespace TheHerosJourney.MonoGame
             // - BACKGROUNDS
             ui.Parchment = this.Content.Load<Texture2D>("UI/Backgrounds/Parchment3");
             ui.ChoiceButton = this.Content.Load<Texture2D>("UI/Backgrounds/ChoiceButton");
+            ui.ProgressMeterBackground = this.Content.Load<Texture2D>("UI/Backgrounds/ProgressMeterBackground");
+            ui.ProgressMeterChunk = this.Content.Load<Texture2D>("UI/Backgrounds/ProgressMeterChunk");
+            ui.ProgressMeterFrame = this.Content.Load<Texture2D>("UI/Backgrounds/ProgressMeterFrame");
             // - LOCATIONS
             ui.Backgrounds["Forest"] = this.Content.Load<Texture2D>("UI/Locations/Forest");
 
@@ -218,13 +221,48 @@ namespace TheHerosJourney.MonoGame
                 );
             }
 
-            // PROGRESS
-            spriteBatch.DrawString(
-                gameData.Fonts.Bold.Font,
-                ((int)gameData.Story.CurrentStage).ToString(),
-                new Vector2(screenBounds.Width - sideMargins / 2, 200),
-                Color.White
-            );
+            // PROGRESS METER
+            {
+                const int meterSize = 150;
+                var centerOfMeter = new Point(screenBounds.Width - (int)sideMargins / 2, 200);
+
+                // THE BACKGROUND
+                spriteBatch.Draw(
+                    ui.ProgressMeterBackground,
+                    new Rectangle(
+                        centerOfMeter - new Point(meterSize / 2, meterSize / 2),
+                        new Point(meterSize, meterSize)
+                    ),
+                    Color.White
+                );
+
+                // THE CHUNKS
+                for (int chunk = 0; chunk < (int)gameData.Story.CurrentStage; chunk += 1)
+                {
+                    const float chunkSize = 2 * MathHelper.Pi / 17;
+                    spriteBatch.Draw(
+                        ui.ProgressMeterChunk,
+                        position: centerOfMeter.ToVector2(),
+                        sourceRectangle: null,
+                        new Color(0, 255, 106), // Light green
+                        rotation: chunkSize * chunk,
+                        origin: new Vector2(0, ui.ProgressMeterChunk.Height),
+                        scale: Vector2.One / 2,
+                        SpriteEffects.None,
+                        layerDepth: 0
+                    );
+                }
+
+                // THE FRAME
+                spriteBatch.Draw(
+                    ui.ProgressMeterFrame,
+                    new Rectangle(
+                        centerOfMeter - new Point(meterSize / 2 + 3, meterSize / 2 + 3),
+                        new Point(meterSize + 6, meterSize + 6)
+                    ),
+                    Color.Black
+                );
+            }
 
             // CHOICES
             if (ScrollText.ShowChoices(gameData))

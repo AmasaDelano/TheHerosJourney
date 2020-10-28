@@ -132,6 +132,42 @@
 /processorParam:TextureFormat=Color
 /build:UI/Backgrounds/Parchment3.jpg
 
+#begin UI/Backgrounds/ProgressMeterBackground.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:UI/Backgrounds/ProgressMeterBackground.png
+
+#begin UI/Backgrounds/ProgressMeterChunk.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:UI/Backgrounds/ProgressMeterChunk.png
+
+#begin UI/Backgrounds/ProgressMeterFrame.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:UI/Backgrounds/ProgressMeterFrame.png
+
 #begin UI/ButtonPrompts/KeyboardAndMouse/Blanks/Blank_Black_Enter.png
 /importer:TextureImporter
 /processor:TextureProcessor

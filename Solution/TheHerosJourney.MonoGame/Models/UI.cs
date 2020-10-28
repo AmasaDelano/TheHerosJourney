@@ -22,7 +22,10 @@ namespace TheHerosJourney.MonoGame.Models
         public Texture2D XboxRT;
         
         // GAME UI
-        public Texture2D Parchment;
         public readonly Dictionary<string, Texture2D> Backgrounds = new Dictionary<string, Texture2D>();
+        public Texture2D Parchment;
+        public Texture2D ProgressMeterBackground;
+        public Texture2D ProgressMeterChunk;
+        public Texture2D ProgressMeterFrame;
     }
 }
